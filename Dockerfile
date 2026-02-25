@@ -8,6 +8,13 @@ RUN npm install
 FROM base AS builder
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Set fallback env vars to satisfy build-time static analysis
+# These will be overridden by runtime environment variables
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/majelis_digital"
+ENV AUTH_SECRET="static_build_time_secret_at_least_32_chars_long"
+ENV AUTH_GOOGLE_ID="dummy"
+ENV AUTH_GOOGLE_SECRET="dummy"
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
 FROM base AS runner
