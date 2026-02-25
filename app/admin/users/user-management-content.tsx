@@ -44,13 +44,17 @@ export function UserManagementContent({
     const [modalOpen, setModalOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
 
-    const handleSearch = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleFilterChange = (key: string, value: string) => {
         const params = new URLSearchParams(window.location.search);
-        if (search) params.set("q", search);
-        else params.delete("q");
+        if (value) params.set(key, value);
+        else params.delete(key);
         params.set("page", "1");
         router.push(`/admin/users?${params.toString()}`);
+    };
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault();
+        handleFilterChange("q", search);
     };
 
     const handleOpenCreate = () => {
@@ -117,23 +121,46 @@ export function UserManagementContent({
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <form onSubmit={handleSearch} className="relative flex-1 max-w-md">
+                <form onSubmit={handleSearch} className="relative flex-1 max-w-sm">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                     <input
                         type="text"
-                        placeholder="Cari nama atau email..."
+                        placeholder="Nama atau email..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full rounded-xl border border-slate-300 bg-white pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                 </form>
-                <button
-                    onClick={handleOpenCreate}
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-700 shadow-lg shadow-brand-500/20"
-                >
-                    <UserPlus className="h-4 w-4" />
-                    Tambah User
-                </button>
+
+                <div className="flex flex-wrap items-center gap-3">
+                    <select
+                        onChange={(e) => handleFilterChange("role", e.target.value)}
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    >
+                        <option value="">Semua Role</option>
+                        <option value="siswa">Siswa</option>
+                        <option value="guru">Guru</option>
+                        <option value="admin">Admin</option>
+                    </select>
+
+                    <select
+                        onChange={(e) => handleFilterChange("classroom", e.target.value)}
+                        className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white min-w-[140px]"
+                    >
+                        <option value="">Semua Kelas</option>
+                        {CLASS_OPTIONS.map((cls) => (
+                            <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={handleOpenCreate}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-700 shadow-lg shadow-brand-500/20"
+                    >
+                        <UserPlus className="h-4 w-4" />
+                        Tambah User
+                    </button>
+                </div>
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden dark:border-slate-800 dark:bg-slate-900/60 shadow-sm">
@@ -199,7 +226,7 @@ export function UserManagementContent({
                             ))}
                             {initialUsers.length === 0 && (
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
+                                    <td colSpan={7} className="px-4 py-12 text-center text-slate-500 dark:text-slate-400">
                                         Tidak ada user ditemukan.
                                     </td>
                                 </tr>

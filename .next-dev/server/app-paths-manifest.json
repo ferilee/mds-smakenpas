@@ -1,3 +1,7 @@
 {
-  "/admin/dashboard/page": "app/admin/dashboard/page.js"
+  "/admin/dashboard/page": "app/admin/dashboard/page.js",
+  "/login/page": "app/login/page.js",
+  "/leaderboard/page": "app/leaderboard/page.js",
+  "/guru/dashboard/page": "app/guru/dashboard/page.js",
+  "/admin/users/page": "app/admin/users/page.js"
 }

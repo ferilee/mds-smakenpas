@@ -31,12 +31,20 @@ async function upsertUser(input: {
     return;
   }
 
+  const staticRole = getRoleFromEmail(email);
+  const updateData: any = {
+    name: input.name || existing.name,
+    image: input.image || existing.image,
+  };
+
+  // Promote to admin/guru if currently a student and in the static list
+  if (existing.role === "siswa" && staticRole !== "siswa") {
+    updateData.role = staticRole;
+  }
+
   await db
     .update(users)
-    .set({
-      name: input.name || existing.name,
-      image: input.image || existing.image,
-    })
+    .set(updateData)
     .where(eq(users.id, existing.id));
 }
 

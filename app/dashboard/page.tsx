@@ -14,7 +14,6 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { computeLevel } from "@/lib/xp";
-import { getRoleFromEmail } from "@/lib/roles";
 
 type DashboardPageProps = {
   searchParams?: Promise<{
@@ -29,7 +28,7 @@ export default async function DashboardPage({
   const isPrayerPanelOpen = resolvedSearchParams?.panel === "prayer";
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const role = getRoleFromEmail(session.user.email);
+  const role = session.user.role;
   if (role === "admin") redirect("/admin/dashboard" as Route);
   if (role === "guru") redirect("/guru/dashboard" as Route);
 
@@ -39,7 +38,7 @@ export default async function DashboardPage({
 
   if (!user) redirect("/login");
 
-  if (role === "user" && !user.isProfileComplete) {
+  if (role === "siswa" && !user.isProfileComplete) {
     redirect("/profiling");
   }
 

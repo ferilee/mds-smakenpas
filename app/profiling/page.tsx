@@ -13,6 +13,10 @@ export default async function ProfilingPage() {
         where: eq(users.id, session.user.id),
     });
 
+    if (session.user.role !== "siswa") {
+        redirect("/dashboard");
+    }
+
     if (user?.isProfileComplete) {
         redirect("/dashboard");
     }

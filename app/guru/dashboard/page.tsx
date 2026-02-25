@@ -8,8 +8,8 @@ import { PDFExportButton } from "@/components/pdf-export-button";
 import { dailyReports, missions, users, type DailyReport } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getRoleFromEmail } from "@/lib/roles";
 import { todayDateString } from "@/lib/xp";
+import { StudentFilter } from "./student-filter";
 
 type GuruDashboardPageProps = {
   searchParams?: Promise<{
@@ -19,6 +19,7 @@ type GuruDashboardPageProps = {
     studentId?: string;
     studentPage?: string;
     riskPage?: string;
+    q?: string;
   }>;
 };
 
@@ -95,8 +96,7 @@ export default async function GuruDashboardPage({
 }: GuruDashboardPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const role = getRoleFromEmail(session.user.email);
-  if (role !== "guru" && role !== "admin") redirect("/dashboard");
+  if (session.user.role !== "guru" && session.user.role !== "admin") redirect("/dashboard");
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const today = todayDateString();
@@ -110,6 +110,7 @@ export default async function GuruDashboardPage({
   const selectedClassroom = resolvedSearchParams?.classroom || "";
   const selectedMajor = resolvedSearchParams?.major || "";
   const selectedStudentFromQuery = resolvedSearchParams?.studentId || "";
+  const studentSearchQuery = resolvedSearchParams?.q || "";
   const studentPage = parsePage(resolvedSearchParams?.studentPage, 1);
   const riskPage = parsePage(resolvedSearchParams?.riskPage, 1);
 
@@ -125,6 +126,7 @@ export default async function GuruDashboardPage({
         major: users.major,
         totalXp: users.totalXp,
         currentStreak: users.currentStreak,
+        role: users.role,
       })
       .from(users)
       .orderBy(asc(users.classroom), asc(users.name)),
@@ -167,9 +169,11 @@ export default async function GuruDashboardPage({
   ).sort() as string[];
 
   const students: StudentRow[] = allStudents.filter((row) => {
+    const roleMatch = row.role === "siswa" || row.role === "user";
     const classMatch = !selectedClassroom || (row.classroom || "") === selectedClassroom;
     const majorMatch = !selectedMajor || (row.major || "") === selectedMajor;
-    return classMatch && majorMatch;
+    const nameMatch = !studentSearchQuery || row.name.toLowerCase().includes(studentSearchQuery.toLowerCase());
+    return roleMatch && classMatch && majorMatch && nameMatch;
   });
   const studentIds = new Set(students.map((row) => row.id));
   const scopedReports: ReportRow[] = reportsRange.filter((row) =>
@@ -387,7 +391,7 @@ export default async function GuruDashboardPage({
           >
             Buka Leaderboard
           </Link>
-          {role === "admin" ? (
+          {session.user.role === "admin" ? (
             <Link
               href={"/admin/dashboard" as Route}
               className="inline-flex h-10 items-center rounded-xl border border-brand-300 px-3 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 dark:border-brand-700 dark:text-brand-300 dark:hover:bg-brand-900/30"
@@ -550,7 +554,14 @@ export default async function GuruDashboardPage({
             <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
               Daftar Siswa
             </h2>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <StudentFilter
+                currentSearch={studentSearchQuery}
+                currentClassroom={selectedClassroom}
+                classroomOptions={classroomOptions}
+                currentMajor={selectedMajor}
+                currentDate={selectedDate}
+              />
               <a
                 href={monitoringCsvHref}
                 download={`guru-monitoring-siswa-${selectedDate}.csv`}

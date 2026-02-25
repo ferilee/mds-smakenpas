@@ -30,6 +30,7 @@ export async function updateProfile(formData: FormData) {
             classroom,
             major,
             isProfileComplete: true,
+            isLocked: true,
             updatedAt: new Date(),
         })
         .where(eq(users.id, session.user.id));

@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { dailyReports, missions, users, type DailyReport } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getRoleFromEmail, isGuruDomainEmail } from "@/lib/roles";
+import { isGuruDomainEmail } from "@/lib/roles";
 import { todayDateString } from "@/lib/xp";
 import { Pagination } from "@/components/pagination";
 import { ExportCSVButton } from "@/components/export-csv-button";
@@ -29,6 +29,7 @@ type UserRow = {
   classroom: string | null;
   totalXp: number;
   currentStreak: number;
+  role: string;
 };
 
 type ReportRow = {
@@ -71,8 +72,7 @@ export default async function AdminDashboardPage({
 }: AdminDashboardPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const role = getRoleFromEmail(session.user.email);
-  if (role !== "admin") redirect("/dashboard");
+  if (session.user.role !== "admin") redirect("/dashboard");
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const today = todayDateString();
@@ -106,6 +106,7 @@ export default async function AdminDashboardPage({
           classroom: users.classroom,
           totalXp: users.totalXp,
           currentStreak: users.currentStreak,
+          role: users.role,
         })
         .from(users)
         .orderBy(asc(users.classroom), asc(users.name)),
@@ -161,18 +162,14 @@ export default async function AdminDashboardPage({
 
   if (!me) redirect("/login");
 
-  const userRoleMap = new Map(
-    allUsers.map((user) => [user.id, getRoleFromEmail(user.email)]),
-  );
-
   const studentUsers: UserRow[] = allUsers.filter(
-    (user) => userRoleMap.get(user.id) === "user",
+    (user) => user.role === "siswa" || user.role === "user",
   );
   const teacherUsers: UserRow[] = allUsers.filter((user) =>
-    isGuruDomainEmail(user.email),
+    user.role === "guru" || isGuruDomainEmail(user.email),
   );
   const adminUsers: UserRow[] = allUsers.filter(
-    (user) => userRoleMap.get(user.id) === "admin",
+    (user) => user.role === "admin",
   );
 
   const classroomOptions = Array.from(

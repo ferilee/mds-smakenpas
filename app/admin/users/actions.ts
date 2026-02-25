@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { and, asc, eq, ilike, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
-import { getRoleFromEmail } from "@/lib/roles";
 
 async function ensureAdmin() {
     const session = await auth();

@@ -3,7 +3,6 @@ import { db } from "@/lib/db";
 import { users } from "@/db/schema";
 import { and, asc, eq, ilike, or, count } from "drizzle-orm";
 import { redirect } from "next/navigation";
-import { getRoleFromEmail } from "@/lib/roles";
 import { UserManagementContent } from "./user-management-content";
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
@@ -12,27 +11,39 @@ type Props = {
     searchParams?: Promise<{
         q?: string;
         page?: string;
+        role?: string;
+        classroom?: string;
     }>;
 };
 
 export default async function AdminUsersPage({ searchParams }: Props) {
     const session = await auth();
     if (!session?.user?.id) redirect("/login");
-    const role = getRoleFromEmail(session.user.email);
-    if (role !== "admin") redirect("/dashboard");
+    if (session.user.role !== "admin") redirect("/dashboard");
 
     const resolvedParams = searchParams ? await searchParams : {};
     const query = resolvedParams.q || "";
     const page = Number(resolvedParams.page) || 1;
+    const roleFilter = resolvedParams.role || "";
+    const classroomFilter = resolvedParams.classroom || "";
     const pageSize = 20;
     const offset = (page - 1) * pageSize;
 
-    const whereClause = query
-        ? or(
+    const conditions = [];
+    if (query) {
+        conditions.push(or(
             ilike(users.name, `%${query}%`),
             ilike(users.email, `%${query}%`)
-        )
-        : undefined;
+        ));
+    }
+    if (roleFilter) {
+        conditions.push(eq(users.role, roleFilter as any));
+    }
+    if (classroomFilter) {
+        conditions.push(eq(users.classroom, classroomFilter));
+    }
+
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const [allUsers, totalCountRes] = await Promise.all([
         db
