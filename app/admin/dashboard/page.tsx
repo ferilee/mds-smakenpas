@@ -55,7 +55,22 @@ function asArray(value: unknown) {
   return Array.isArray(value) ? value : [];
 }
 
-function buildHref(input: { classroom?: string; date?: string; page?: string; studentId?: string }) {
+function asString(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function buildHref(input: {
+  classroom?: string;
+  date?: string;
+  page?: string;
+  studentId?: string;
+}) {
   const params = new URLSearchParams();
   if (input.classroom) params.set("classroom", input.classroom);
   if (input.date) params.set("date", input.date);
@@ -78,7 +93,7 @@ export default async function AdminDashboardPage({
   const today = todayDateString();
   const selectedDate =
     resolvedSearchParams?.date &&
-      /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
+    /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
       ? resolvedSearchParams.date
       : today;
   const selectedClassroom = resolvedSearchParams?.classroom || "";
@@ -93,80 +108,80 @@ export default async function AdminDashboardPage({
 
   const selectedStudentId = resolvedSearchParams?.studentId || "";
 
-  const [me, allUsers, activeMissions, reportsRange, totalReportsCount, selectedStudent, selectedStudentReports] =
-    await Promise.all([
-      db.query.users.findFirst({
-        where: eq(users.id, session.user.id),
-      }),
-      db
-        .select({
-          id: users.id,
-          name: users.name,
-          email: users.email,
-          classroom: users.classroom,
-          totalXp: users.totalXp,
-          currentStreak: users.currentStreak,
-          role: users.role,
-        })
-        .from(users)
-        .orderBy(asc(users.classroom), asc(users.name)),
-      db
-        .select({
-          id: missions.id,
-          code: missions.code,
-          title: missions.title,
-          category: missions.category,
-        })
-        .from(missions)
-        .where(eq(missions.active, true))
-        .orderBy(asc(missions.category), asc(missions.id)),
-      db
-        .select({
-          id: dailyReports.id,
-          userId: dailyReports.userId,
-          reportDate: dailyReports.reportDate,
-          xpGained: dailyReports.xpGained,
-          narration: dailyReports.narration,
-          answers: dailyReports.answers,
-        })
-        .from(dailyReports)
-        .where(
-          and(
-            gte(dailyReports.reportDate, range30Start),
-            lte(dailyReports.reportDate, selectedDate),
-          ),
+  const [
+    me,
+    allUsers,
+    activeMissions,
+    reportsRange,
+    selectedStudent,
+    selectedStudentReports,
+  ] = await Promise.all([
+    db.query.users.findFirst({
+      where: eq(users.id, session.user.id),
+    }),
+    db
+      .select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        classroom: users.classroom,
+        totalXp: users.totalXp,
+        currentStreak: users.currentStreak,
+        role: users.role,
+      })
+      .from(users)
+      .orderBy(asc(users.classroom), asc(users.name)),
+    db
+      .select({
+        id: missions.id,
+        code: missions.code,
+        title: missions.title,
+        category: missions.category,
+      })
+      .from(missions)
+      .where(eq(missions.active, true))
+      .orderBy(asc(missions.category), asc(missions.id)),
+    db
+      .select({
+        id: dailyReports.id,
+        userId: dailyReports.userId,
+        reportDate: dailyReports.reportDate,
+        xpGained: dailyReports.xpGained,
+        narration: dailyReports.narration,
+        answers: dailyReports.answers,
+      })
+      .from(dailyReports)
+      .where(
+        and(
+          gte(dailyReports.reportDate, range30Start),
+          lte(dailyReports.reportDate, selectedDate),
         ),
-      db
-        .select({ count: db.$count(dailyReports) })
-        .from(dailyReports)
-        .where(
-          and(
-            gte(dailyReports.reportDate, range30Start),
-            lte(dailyReports.reportDate, selectedDate),
-          ),
-        )
-        .then((res) => res[0]?.count || 0),
-      selectedStudentId
-        ? db.query.users.findFirst({ where: eq(users.id, selectedStudentId) })
-        : Promise.resolve(null),
-      selectedStudentId
-        ? db.select().from(dailyReports).where(
-          and(
-            eq(dailyReports.userId, selectedStudentId),
-            gte(dailyReports.reportDate, range14Start),
-            lte(dailyReports.reportDate, selectedDate)
+      ),
+    selectedStudentId
+      ? db.query.users.findFirst({ where: eq(users.id, selectedStudentId) })
+      : Promise.resolve(null),
+    selectedStudentId
+      ? db
+          .select()
+          .from(dailyReports)
+          .where(
+            and(
+              eq(dailyReports.userId, selectedStudentId),
+              gte(dailyReports.reportDate, range14Start),
+              lte(dailyReports.reportDate, selectedDate),
+            ),
           )
-        ).orderBy(asc(dailyReports.reportDate))
-        : Promise.resolve([]),
-    ]);
+          .orderBy(asc(dailyReports.reportDate))
+      : Promise.resolve([]),
+  ]);
 
   if (!me) redirect("/login");
 
   const studentUsers: UserRow[] = allUsers.filter(
     (user) => user.role === "siswa" || user.role === "user",
   );
-  const teacherUsers: UserRow[] = allUsers.filter((user) =>
-    user.role === "guru" || isGuruDomainEmail(user.email),
+  const teacherUsers: UserRow[] = allUsers.filter(
+    (user) => user.role === "guru" || isGuruDomainEmail(user.email),
   );
   const adminUsers: UserRow[] = allUsers.filter(
     (user) => user.role === "admin",
@@ -211,9 +226,9 @@ export default async function AdminDashboardPage({
   const completionTrend = completionRate - previousCompletion;
   const avgXpToday = todaySubmitted
     ? Math.round(
-      reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
-      todaySubmitted,
-    )
+        reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
+          todaySubmitted,
+      )
     : 0;
 
   const classStudentsMap = students.reduce<Record<string, UserRow[]>>(
@@ -260,19 +275,19 @@ export default async function AdminDashboardPage({
       );
       const completionToday = classroomStudents.length
         ? Math.round(
-          (classTodayReports.length / classroomStudents.length) * 100,
-        )
+            (classTodayReports.length / classroomStudents.length) * 100,
+          )
         : 0;
       const consistencyWeek = classroomStudents.length
         ? Math.round(
-          (classWeekReports.length / (classroomStudents.length * 7)) * 100,
-        )
+            (classWeekReports.length / (classroomStudents.length * 7)) * 100,
+          )
         : 0;
       const avgClassXp = classroomStudents.length
         ? Math.round(
-          classroomStudents.reduce((sum, row) => sum + row.totalXp, 0) /
-          classroomStudents.length,
-        )
+            classroomStudents.reduce((sum, row) => sum + row.totalXp, 0) /
+              classroomStudents.length,
+          )
         : 0;
       return {
         classroom,
@@ -299,9 +314,9 @@ export default async function AdminDashboardPage({
     const dayReports = reports14.filter((r) => r.reportDate === day);
     const avgXp = dayReports.length
       ? Math.round(
-        dayReports.reduce((sum, row) => sum + row.xpGained, 0) /
-        dayReports.length,
-      )
+          dayReports.reduce((sum, row) => sum + row.xpGained, 0) /
+            dayReports.length,
+        )
       : 0;
     const completion = totalStudents
       ? Math.round((dayReports.length / totalStudents) * 100)
@@ -314,10 +329,10 @@ export default async function AdminDashboardPage({
       const tadarusComplete =
         Number(row.answers?.tadarusReport?.totalAyatRead || 0) > 0;
       const kultumComplete = Boolean(
-        row.answers?.kultumReport?.ringkasan?.trim(),
+        asString(row.answers?.kultumReport?.ringkasan).trim(),
       );
       const silaturahimComplete = Boolean(
-        row.answers?.silaturahimReport?.location?.trim(),
+        asString(row.answers?.silaturahimReport?.location).trim(),
       );
       const refleksiComplete = Boolean(row.narration?.trim());
       if (tadarusComplete) acc.tadarus += 1;
@@ -354,13 +369,14 @@ export default async function AdminDashboardPage({
       );
       if (totalAyat > 300) issues.push(`Tadarus tinggi (${totalAyat} ayat)`);
       const selectedMissionIds = asArray(report.answers?.selectedMissionIds);
-      const checklistTs = report.answers?.checklistTimestamps || {};
+      const checklistTs = asRecord(report.answers?.checklistTimestamps);
       const missingTs = selectedMissionIds.some(
         (id) => !checklistTs[String(id)],
       );
       if (missingTs) issues.push("Timestamp checklist ada yang kosong");
-      const kultumRingkasan =
-        report.answers?.kultumReport?.ringkasan?.trim() || "";
+      const kultumRingkasan = asString(
+        report.answers?.kultumReport?.ringkasan,
+      ).trim();
       if (kultumRingkasan && kultumRingkasan.length < 120) {
         issues.push("Ringkasan kultum terlalu pendek");
       }
@@ -374,11 +390,11 @@ export default async function AdminDashboardPage({
     })
     .filter(Boolean)
     .slice(0, 12) as Array<{
-      reportId: number;
-      studentName: string;
-      classroom: string;
-      issues: string[];
-    }>;
+    reportId: number;
+    studentName: string;
+    classroom: string;
+    issues: string[];
+  }>;
 
   const recentReports = scopedReports
     .slice()
@@ -563,10 +579,11 @@ export default async function AdminDashboardPage({
             {completionRate}%
           </p>
           <p
-            className={`text-xs font-semibold ${completionTrend >= 0
-              ? "text-emerald-600 dark:text-emerald-400"
-              : "text-rose-600 dark:text-rose-400"
-              }`}
+            className={`text-xs font-semibold ${
+              completionTrend >= 0
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-rose-600 dark:text-rose-400"
+            }`}
           >
             {completionTrend >= 0 ? `+${completionTrend}` : completionTrend}% vs
             kemarin
@@ -592,8 +609,8 @@ export default async function AdminDashboardPage({
             orientation="landscape"
             verticalHeader={true}
             columnStyles={Object.fromEntries([
-              [0, { cellWidth: 30, halign: 'left' }],
-              ...activeMissions.map((_, i) => [i + 1, { cellWidth: 13.2 }])
+              [0, { cellWidth: 30, halign: "left" }],
+              ...activeMissions.map((_, i) => [i + 1, { cellWidth: 13.2 }]),
             ])}
             margin={{ top: 40, left: 40, right: 30, bottom: 30 }}
           />
@@ -623,12 +640,13 @@ export default async function AdminDashboardPage({
                     {row.missionCells.map((cell) => (
                       <td key={cell.missionId} className="py-2 pr-2">
                         <span
-                          className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${cell.percent >= 80
-                            ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                            : cell.percent >= 50
-                              ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                              : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
-                            }`}
+                          className={`inline-flex rounded-full px-2 py-0.5 font-semibold ${
+                            cell.percent >= 80
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                              : cell.percent >= 50
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                : "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300"
+                          }`}
                         >
                           {cell.percent}%
                         </span>
@@ -796,28 +814,61 @@ export default async function AdminDashboardPage({
             <tbody>
               {students.slice(offset, offset + pageSize).map((student) => {
                 const report = reportByUserId.get(student.id);
-                const missionsToday = asArray(report?.answers?.selectedMissionIds)
+                const missionsToday = asArray(
+                  report?.answers?.selectedMissionIds,
+                )
                   .map((id) => missionTitleMap.get(id))
                   .filter(Boolean)
                   .join(", ");
 
                 return (
-                  <tr key={student.id} className="border-t border-slate-200 dark:border-slate-700">
-                    <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">{student.name}</td>
-                    <td className="py-2.5 text-slate-600 dark:text-slate-400">{student.classroom || "Tanpa Kelas"}</td>
+                  <tr
+                    key={student.id}
+                    className="border-t border-slate-200 dark:border-slate-700"
+                  >
+                    <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                      {student.name}
+                    </td>
+                    <td className="py-2.5 text-slate-600 dark:text-slate-400">
+                      {student.classroom || "Tanpa Kelas"}
+                    </td>
                     <td className="py-2.5 text-slate-600 dark:text-slate-400 max-w-xs truncate">
-                      {missionsToday || <span className="text-slate-400 italic font-normal text-xs">Belum ada aktivitas hari ini</span>}
+                      {missionsToday || (
+                        <span className="text-slate-400 italic font-normal text-xs">
+                          Belum ada aktivitas hari ini
+                        </span>
+                      )}
                     </td>
                     <td className="py-2.5">
                       <div className="flex items-center justify-center gap-2">
                         <Link
-                          href={buildHref({ classroom: selectedClassroom, date: selectedDate, studentId: student.id, page: String(currentPage) })}
+                          href={buildHref({
+                            classroom: selectedClassroom,
+                            date: selectedDate,
+                            studentId: student.id,
+                            page: String(currentPage),
+                          })}
                           className="p-1.5 rounded-lg text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                           title="Preview Detail"
                         >
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            />
                           </svg>
                         </Link>
                         <PDFExportButton
@@ -826,9 +877,15 @@ export default async function AdminDashboardPage({
                           filename={`laporan-detail-${student.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
                           headers={["Tanggal", "Misi", "XP", "Narasi/Refleksi"]}
                           data={timelineDays.map((day) => {
-                            const studentReports = reportsRange.filter(r => r.userId === student.id);
-                            const r = studentReports.find(sr => sr.reportDate === day);
-                            const selectedIds = asArray(r?.answers?.selectedMissionIds);
+                            const studentReports = reportsRange.filter(
+                              (r) => r.userId === student.id,
+                            );
+                            const r = studentReports.find(
+                              (sr) => sr.reportDate === day,
+                            );
+                            const selectedIds = asArray(
+                              r?.answers?.selectedMissionIds,
+                            );
                             const mNames = selectedIds
                               .map((id) => missionTitleMap.get(id))
                               .filter(Boolean)
@@ -870,12 +927,17 @@ export default async function AdminDashboardPage({
                   Detail Aktivitas: {selectedStudent.name}
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedStudent.classroom || "Tanpa Kelas"} • Total {selectedStudent.totalXp} XP • Streak {selectedStudent.currentStreak} hari
+                  {selectedStudent.classroom || "Tanpa Kelas"} • Total{" "}
+                  {selectedStudent.totalXp} XP • Streak{" "}
+                  {selectedStudent.currentStreak} hari
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <Link
-                  href={buildHref({ classroom: selectedClassroom, date: selectedDate })}
+                  href={buildHref({
+                    classroom: selectedClassroom,
+                    date: selectedDate,
+                  })}
                   className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
                   Tutup
@@ -887,7 +949,9 @@ export default async function AdminDashboardPage({
                   headers={["Tanggal", "Misi", "XP", "Narasi/Refleksi"]}
                   data={timelineDays.map((day) => {
                     const report = selectedStudentReportByDate.get(day);
-                    const selectedIds = asArray(report?.answers?.selectedMissionIds);
+                    const selectedIds = asArray(
+                      report?.answers?.selectedMissionIds,
+                    );
                     const missionNames = selectedIds
                       .map((id) => missionTitleMap.get(id))
                       .filter(Boolean)
@@ -912,7 +976,9 @@ export default async function AdminDashboardPage({
                     className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">{day}</p>
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                        {day}
+                      </p>
                       {report && (
                         <span className="text-xs font-bold text-brand-700 dark:text-brand-300">
                           +{report.xpGained} XP
@@ -922,7 +988,8 @@ export default async function AdminDashboardPage({
                     {report ? (
                       <div className="mt-1">
                         <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                          {asArray(report.answers?.selectedMissionIds).length} misi diselesaikan
+                          {asArray(report.answers?.selectedMissionIds).length}{" "}
+                          misi diselesaikan
                         </p>
                         {report.narration && (
                           <p className="mt-1 line-clamp-2 text-[10px] text-slate-600 dark:text-slate-300 italic">
@@ -959,10 +1026,11 @@ export default async function AdminDashboardPage({
                     studentId: row.userId,
                     page: String(currentPage),
                   })}
-                  className={`block rounded-xl border transition ${selectedStudentId === row.userId
-                    ? "border-brand-300 bg-brand-50 dark:border-brand-700 dark:bg-brand-900/30"
-                    : "border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-slate-800"
-                    } px-3 py-2`}
+                  className={`block rounded-xl border transition ${
+                    selectedStudentId === row.userId
+                      ? "border-brand-300 bg-brand-50 dark:border-brand-700 dark:bg-brand-900/30"
+                      : "border-slate-200 bg-slate-50 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/60 dark:hover:bg-slate-800"
+                  } px-3 py-2`}
                 >
                   <div className="flex items-center justify-between">
                     <div>
