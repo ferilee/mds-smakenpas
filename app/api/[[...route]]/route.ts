@@ -96,20 +96,25 @@ app.get("/missions", async (c) => {
 });
 
 app.get("/teacher-videos", async (c) => {
-  const videos = await db
-    .select({
-      id: teacherVideos.id,
-      title: teacherVideos.title,
-      youtubeUrl: teacherVideos.youtubeUrl,
-      videoId: teacherVideos.videoId,
-      ustadz: teacherVideos.ustadz,
-      publishedAt: teacherVideos.publishedAt,
-    })
-    .from(teacherVideos)
-    .where(eq(teacherVideos.active, true))
-    .orderBy(desc(teacherVideos.publishedAt), desc(teacherVideos.id));
+  try {
+    const videos = await db
+      .select({
+        id: teacherVideos.id,
+        title: teacherVideos.title,
+        youtubeUrl: teacherVideos.youtubeUrl,
+        videoId: teacherVideos.videoId,
+        ustadz: teacherVideos.ustadz,
+        publishedAt: teacherVideos.publishedAt,
+      })
+      .from(teacherVideos)
+      .where(eq(teacherVideos.active, true))
+      .orderBy(desc(teacherVideos.publishedAt), desc(teacherVideos.id));
 
-  return c.json({ videos });
+    return c.json({ videos });
+  } catch (error) {
+    console.error("Failed to fetch teacher videos:", error);
+    return c.json({ videos: [] });
+  }
 });
 
 app.get(
