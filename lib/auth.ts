@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
+import { inspect } from "node:util";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { users } from "@/db/schema";
@@ -8,6 +9,11 @@ import { getRoleFromEmail } from "./roles";
 const googleClientId = process.env.AUTH_GOOGLE_ID;
 const googleClientSecret = process.env.AUTH_GOOGLE_SECRET;
 const authSecret = process.env.AUTH_SECRET;
+
+function formatAuthLogEntry(entry: unknown) {
+  if (typeof entry === "string") return entry;
+  return inspect(entry, { depth: 8, colors: false, compact: false });
+}
 
 async function upsertUser(input: {
   email: string;
@@ -42,10 +48,7 @@ async function upsertUser(input: {
     updateData.role = staticRole;
   }
 
-  await db
-    .update(users)
-    .set(updateData)
-    .where(eq(users.id, existing.id));
+  await db.update(users).set(updateData).where(eq(users.id, existing.id));
 }
 
 function pickProfileImage(input: {
@@ -78,7 +81,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: process.env.NODE_ENV !== "production",
   logger: {
     error(code, ...message) {
-      console.error("[auth][error]", code, ...message);
+      console.error(
+        "[auth][error]",
+        code,
+        ...message.map((entry) => formatAuthLogEntry(entry)),
+      );
     },
     warn(code, ...message) {
       console.warn("[auth][warn]", code, ...message);
@@ -97,14 +104,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user, profile }) {
       const email = user.email?.toLowerCase().trim();
       if (email) {
-        await upsertUser({
-          email,
-          name: user.name,
-          image: pickProfileImage({
-            user,
-            profile: profile as Record<string, unknown>,
-          }),
-        });
+        try {
+          await upsertUser({
+            email,
+            name: user.name,
+            image: pickProfileImage({
+              user,
+              profile: profile as Record<string, unknown>,
+            }),
+          });
+        } catch (error) {
+          console.error("[auth][signIn][upsertUser] failed:", error);
+          throw error;
+        }
       }
       return true;
     },
