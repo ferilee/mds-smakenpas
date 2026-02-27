@@ -107,3 +107,15 @@ GURU_EMAIL_DOMAIN=guru.smk.belajar.id
 ## Catatan Auth
 - Untuk deploy production, tambahkan redirect URI production dengan format:
   - `https://domain-kamu/api/auth/callback/google`
+
+## Deploy Production (Docker)
+- Salin env production:
+```bash
+cp .env.production.example .env.production
+```
+- Jalankan stack production:
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+```
+- Panduan lengkap:
+  - `docs/deploy-production.md`

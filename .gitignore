@@ -5,3 +5,15 @@ node_modules
 dist
 coverage
 drizzle
+
+# Secrets / credentials
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.p12
+*.pfx
+*key*
+*password*
+*secret*
+*credential*
