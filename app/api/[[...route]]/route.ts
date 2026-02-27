@@ -239,6 +239,8 @@ const reportSchema = z.object({
       purpose: z.string().trim().max(500).optional(),
       lessonSummary: z.string().trim().max(800).optional(),
       proofPhotoDataUrl: z.string().trim().max(2500000).optional(),
+      proofPhotoUrl: z.string().trim().max(1200).optional(),
+      proofPhotoObjectKey: z.string().trim().max(600).optional(),
     })
     .optional(),
   kultumReport: z

@@ -109,6 +109,8 @@ export const dailyReports = pgTable(
           purpose?: string;
           lessonSummary?: string;
           proofPhotoDataUrl?: string;
+          proofPhotoUrl?: string;
+          proofPhotoObjectKey?: string;
         };
         kultumReport?: {
           teacherVideoId: number;

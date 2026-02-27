@@ -76,7 +76,8 @@ type SilaturahimForm = {
   recordedAt: string;
   purpose: string;
   lessonSummary: string;
-  proofPhotoDataUrl: string;
+  proofPhotoUrl: string;
+  proofPhotoObjectKey: string;
 };
 type KultumForm = {
   teacherVideoId: string;
@@ -755,9 +756,12 @@ export function DailyChecklist({
     recordedAt: new Date().toISOString(),
     purpose: "",
     lessonSummary: "",
-    proofPhotoDataUrl: "",
+    proofPhotoUrl: "",
+    proofPhotoObjectKey: "",
   });
   const [silaturahimSubmitting, setSilaturahimSubmitting] = useState(false);
+  const [silaturahimPhotoUploading, setSilaturahimPhotoUploading] =
+    useState(false);
   const [silaturahimStatus, setSilaturahimStatus] = useState("");
   const [kultumForm, setKultumForm] = useState<KultumForm>({
     teacherVideoId: "",
@@ -999,8 +1003,13 @@ export function DailyChecklist({
               purpose: tData.report.answers.silaturahimReport.purpose || "",
               lessonSummary:
                 tData.report.answers.silaturahimReport.lessonSummary || "",
-              proofPhotoDataUrl:
-                tData.report.answers.silaturahimReport.proofPhotoDataUrl || "",
+              proofPhotoUrl:
+                tData.report.answers.silaturahimReport.proofPhotoUrl ||
+                tData.report.answers.silaturahimReport.proofPhotoDataUrl ||
+                "",
+              proofPhotoObjectKey:
+                tData.report.answers.silaturahimReport.proofPhotoObjectKey ||
+                "",
             });
           }
           if (tData.report.answers.zakatFitrah) {
@@ -1225,7 +1234,7 @@ export function DailyChecklist({
         ...dated[0],
         at: new Date(
           parseTimeForDate(new Date(now), dated[0].time).getTime() +
-          24 * 3600 * 1000,
+            24 * 3600 * 1000,
         ),
       };
       current = dated[dated.length - 1];
@@ -1371,9 +1380,13 @@ export function DailyChecklist({
     setSaving(true);
     setStatus("");
     try {
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1442,8 +1455,12 @@ export function DailyChecklist({
         [activePilarMission.id]: submittedAt,
       };
 
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1502,9 +1519,13 @@ export function DailyChecklist({
         [prayerName]: new Date().toISOString(),
       };
 
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1579,7 +1600,9 @@ export function DailyChecklist({
       };
 
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1648,7 +1671,9 @@ export function DailyChecklist({
         [activePilarMission.id]: silaturahimForm.recordedAt,
       };
 
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
@@ -1740,9 +1765,13 @@ export function DailyChecklist({
         [activePilarMission.id]: submittedAt,
       };
 
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1823,9 +1852,13 @@ export function DailyChecklist({
         [activePilarMission.id]: submittedAt,
       };
 
-      const normalizedIdulfitri = idulfitriForm.place.trim() ? idulfitriForm : undefined;
+      const normalizedIdulfitri = idulfitriForm.place.trim()
+        ? idulfitriForm
+        : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
-      const normalizedSilaturahim = silaturahimForm.teacherName.trim() ? silaturahimForm : undefined;
+      const normalizedSilaturahim = silaturahimForm.teacherName.trim()
+        ? silaturahimForm
+        : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -1869,43 +1902,57 @@ export function DailyChecklist({
       setKultumSubmitting(false);
     }
   };
-  const handleSilaturahimPhotoChange = (
+  const handleSilaturahimPhotoChange = async (
     event: ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    setSilaturahimPhotoUploading(true);
     const maxSizeBytes = 2 * 1024 * 1024;
     if (file.size > maxSizeBytes) {
       setSilaturahimStatus("Ukuran foto maksimal 2MB.");
+      setSilaturahimPhotoUploading(false);
       event.currentTarget.value = "";
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/uploads/silaturahim", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSilaturahimStatus(data.message || "Gagal mengunggah foto.");
+        return;
+      }
       setSilaturahimForm((prev) => ({
         ...prev,
-        proofPhotoDataUrl: result,
+        proofPhotoUrl: data.url || "",
+        proofPhotoObjectKey: data.objectKey || "",
       }));
-      setSilaturahimStatus("");
-    };
-    reader.onerror = () => {
-      setSilaturahimStatus("Gagal membaca file foto.");
-    };
-    reader.readAsDataURL(file);
+      setSilaturahimStatus("Foto bukti berhasil diunggah.");
+    } catch (error) {
+      console.error(error);
+      setSilaturahimStatus("Gagal mengunggah foto ke server.");
+    } finally {
+      setSilaturahimPhotoUploading(false);
+      event.currentTarget.value = "";
+    }
   };
 
   const prayerGrid = schedule
     ? [
-      { label: "Imsak", value: schedule.times.imsak },
-      { label: "Subuh", value: schedule.times.subuh },
-      { label: "Terbit", value: schedule.times.terbit },
-      { label: "Dhuha", value: schedule.times.dhuha },
-      { label: "Dzuhur", value: schedule.times.dzuhur },
-      { label: "Ashar", value: schedule.times.ashar },
-      { label: "Maghrib", value: schedule.times.maghrib },
-      { label: "Isya", value: schedule.times.isya },
-    ]
+        { label: "Imsak", value: schedule.times.imsak },
+        { label: "Subuh", value: schedule.times.subuh },
+        { label: "Terbit", value: schedule.times.terbit },
+        { label: "Dhuha", value: schedule.times.dhuha },
+        { label: "Dzuhur", value: schedule.times.dzuhur },
+        { label: "Ashar", value: schedule.times.ashar },
+        { label: "Maghrib", value: schedule.times.maghrib },
+        { label: "Isya", value: schedule.times.isya },
+      ]
     : [];
   const prayerReportRows = [
     { label: "Subuh", value: schedule?.times.subuh || "--:--" },
@@ -2005,10 +2052,11 @@ export function DailyChecklist({
               onClick={() => setActiveCategory(item.target)}
               title={item.label}
               aria-label={item.label}
-              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${activeCategory === item.target
-                ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
-                : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
-                }`}
+              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${
+                activeCategory === item.target
+                  ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
+                  : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
+              }`}
             >
               <BottomNavIcon label={item.label} />
               <span className="text-[10px] font-semibold uppercase tracking-[0.05em]">
@@ -2021,10 +2069,11 @@ export function DailyChecklist({
               href={item.href}
               title={item.label}
               aria-label={item.label}
-              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${pathname === item.href
-                ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
-                : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
-                }`}
+              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${
+                pathname === item.href
+                  ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
+                  : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
+              }`}
             >
               <BottomNavIcon label={item.label} />
               <span className="text-[10px] font-semibold uppercase tracking-[0.05em]">
@@ -2142,18 +2191,20 @@ export function DailyChecklist({
                 <button
                   type="button"
                   onClick={() => setReminderOn((prev) => !prev)}
-                  className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs ${reminderOn
-                    ? "border-brand-200/20 bg-brand-900/35 text-brand-100"
-                    : "border-slate-400/25 bg-slate-800/60 text-slate-300"
-                    }`}
+                  className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs ${
+                    reminderOn
+                      ? "border-brand-200/20 bg-brand-900/35 text-brand-100"
+                      : "border-slate-400/25 bg-slate-800/60 text-slate-300"
+                  }`}
                   aria-pressed={reminderOn}
                 >
                   <span>Suara Pengingat Sholat</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 font-semibold ${reminderOn
-                      ? "bg-emerald-400/20 text-emerald-200"
-                      : "bg-slate-300/20 text-slate-200"
-                      }`}
+                    className={`rounded-full px-2 py-0.5 font-semibold ${
+                      reminderOn
+                        ? "bg-emerald-400/20 text-emerald-200"
+                        : "bg-slate-300/20 text-slate-200"
+                    }`}
                   >
                     {reminderOn ? "ON" : "OFF"}
                   </span>
@@ -2170,14 +2221,16 @@ export function DailyChecklist({
                   return (
                     <article
                       key={item.label}
-                      className={`rounded-2xl border px-2 py-3 text-center transition ${active
-                        ? "border-amber-500/70 bg-gradient-to-br from-amber-900/40 to-amber-950/50 text-amber-200 shadow-[0_8px_24px_rgba(244,160,54,0.18)]"
-                        : "border-brand-300/25 bg-gradient-to-b from-brand-900/40 to-slate-900/60 text-slate-100"
-                        }`}
+                      className={`rounded-2xl border px-2 py-3 text-center transition ${
+                        active
+                          ? "border-amber-500/70 bg-gradient-to-br from-amber-900/40 to-amber-950/50 text-amber-200 shadow-[0_8px_24px_rgba(244,160,54,0.18)]"
+                          : "border-brand-300/25 bg-gradient-to-b from-brand-900/40 to-slate-900/60 text-slate-100"
+                      }`}
                     >
                       <p
-                        className={`text-[11px] sm:text-sm ${active ? "text-amber-200/95" : "text-brand-100/80"
-                          }`}
+                        className={`text-[11px] sm:text-sm ${
+                          active ? "text-amber-200/95" : "text-brand-100/80"
+                        }`}
                       >
                         {item.label}
                       </p>
@@ -2218,10 +2271,11 @@ export function DailyChecklist({
                   key={item.key}
                   type="button"
                   onClick={() => setActiveCategory(item.key)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${activeCategory === item.key
-                    ? "border-white/70 bg-white text-brand-800"
-                    : "border-white/35 bg-white/10 text-brand-50 hover:bg-white/15"
-                    }`}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
+                    activeCategory === item.key
+                      ? "border-white/70 bg-white text-brand-800"
+                      : "border-white/35 bg-white/10 text-brand-50 hover:bg-white/15"
+                  }`}
                 >
                   {item.label}
                 </button>
@@ -2272,19 +2326,20 @@ export function DailyChecklist({
                         ? murajaahPercent
                         : isShalatLimaWaktu
                           ? Math.round(
-                            (reportedPrayerCount / prayerReportOrder.length) *
-                            100,
-                          )
+                              (reportedPrayerCount / prayerReportOrder.length) *
+                                100,
+                            )
                           : done
                             ? 100
                             : 0;
                       return (
                         <article key={m.id} className="relative">
                           <span
-                            className={`absolute -left-[31px] top-16 h-4 w-4 rounded-full border-2 ${done
-                              ? "border-emerald-200 bg-emerald-400"
-                              : "border-brand-100 bg-white"
-                              }`}
+                            className={`absolute -left-[31px] top-16 h-4 w-4 rounded-full border-2 ${
+                              done
+                                ? "border-emerald-200 bg-emerald-400"
+                                : "border-brand-100 bg-white"
+                            }`}
                           />
                           <button
                             type="button"
@@ -2424,8 +2479,9 @@ export function DailyChecklist({
       {activePilarMission ? (
         <div className="fixed inset-0 z-[130] flex items-end bg-slate-950/45 p-0 sm:p-4">
           <div
-            className={`w-full rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${pilarSheetOpen ? "translate-y-0" : "translate-y-12"
-              }`}
+            className={`w-full rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${
+              pilarSheetOpen ? "translate-y-0" : "translate-y-12"
+            }`}
           >
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-slate-300 sm:hidden" />
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -2435,10 +2491,11 @@ export function DailyChecklist({
             {activePilarMission.code === "SHALAT_IDULFITRI" ? (
               <div className="mt-3 space-y-3">
                 <div
-                  className={`rounded-2xl border p-3 text-sm ${isIdulfitriFormActive
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200"
-                    : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
-                    }`}
+                  className={`rounded-2xl border p-3 text-sm ${
+                    isIdulfitriFormActive
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200"
+                      : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
+                  }`}
                 >
                   {isIdulfitriFormActive
                     ? "Form Shalat Idulfitri aktif hari ini (1 Syawal)."
@@ -2538,10 +2595,11 @@ export function DailyChecklist({
                             prayerReports[item.label] || "Berjamaah",
                           );
                         }}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white ${prayerReports[item.label]
-                          ? "cursor-not-allowed bg-slate-400 dark:bg-slate-600"
-                          : "bg-brand-600 hover:bg-brand-700"
-                          }`}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white ${
+                          prayerReports[item.label]
+                            ? "cursor-not-allowed bg-slate-400 dark:bg-slate-600"
+                            : "bg-brand-600 hover:bg-brand-700"
+                        }`}
                       >
                         {prayerReports[item.label] ? "Sudah Dilapor" : "Lapor"}
                       </button>
@@ -2717,7 +2775,7 @@ export function DailyChecklist({
               </div>
             ) : null}
             {activePilarMission.code === "SILATURAHIM" ||
-              activePilarMission.code === "SILATURRAHIM_RAMADAN" ? (
+            activePilarMission.code === "SILATURRAHIM_RAMADAN" ? (
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                 <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   Form Laporan Silaturahim
@@ -2803,10 +2861,10 @@ export function DailyChecklist({
                     />
                   </label>
                 </div>
-                {silaturahimForm.proofPhotoDataUrl ? (
+                {silaturahimForm.proofPhotoUrl ? (
                   <div className="mt-2 rounded-xl border border-slate-300 bg-white p-2 dark:border-slate-700 dark:bg-slate-900/60">
                     <img
-                      src={silaturahimForm.proofPhotoDataUrl}
+                      src={silaturahimForm.proofPhotoUrl}
                       alt="Bukti kunjungan silaturahim"
                       className="h-40 w-full rounded-lg object-cover"
                     />
@@ -2815,7 +2873,8 @@ export function DailyChecklist({
                       onClick={() =>
                         setSilaturahimForm((prev) => ({
                           ...prev,
-                          proofPhotoDataUrl: "",
+                          proofPhotoUrl: "",
+                          proofPhotoObjectKey: "",
                         }))
                       }
                       className="mt-2 rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200"
@@ -2847,10 +2906,14 @@ export function DailyChecklist({
                 <button
                   type="button"
                   onClick={submitSilaturahimReport}
-                  disabled={silaturahimSubmitting}
+                  disabled={silaturahimSubmitting || silaturahimPhotoUploading}
                   className="mt-3 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-400 dark:disabled:bg-slate-700"
                 >
-                  {silaturahimSubmitting ? "Mengirim..." : "Kunjungan Selesai"}
+                  {silaturahimPhotoUploading
+                    ? "Mengunggah foto..."
+                    : silaturahimSubmitting
+                      ? "Mengirim..."
+                      : "Kunjungan Selesai"}
                 </button>
                 {silaturahimStatus ? (
                   <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
@@ -3172,10 +3235,11 @@ export function DailyChecklist({
                         key={idea}
                         type="button"
                         onClick={() => addSunnahIdea(idea)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active
-                          ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-800"
-                          }`}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-800"
+                        }`}
                       >
                         {active ? "Terpilih: " : ""}
                         {idea}
@@ -3322,8 +3386,18 @@ export function DailyChecklist({
               className="absolute right-4 top-4 rounded-full p-1 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
               aria-label="Tutup"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
             <h4 className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -3339,10 +3413,11 @@ export function DailyChecklist({
                   key={mode}
                   type="button"
                   onClick={() => setPrayerModeDraft(mode)}
-                  className={`flex min-h-[118px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-sm ${prayerModeDraft === mode
-                    ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
-                    : "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
-                    }`}
+                  className={`flex min-h-[118px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-sm ${
+                    prayerModeDraft === mode
+                      ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                      : "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                  }`}
                 >
                   {mode === "Berjamaah" ? (
                     <svg
@@ -3386,7 +3461,11 @@ export function DailyChecklist({
             </div>
 
             <div className="mt-6">
-              {status && <p className="mb-2 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">{status}</p>}
+              {status && (
+                <p className="mb-2 text-center text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  {status}
+                </p>
+              )}
               <button
                 type="button"
                 onClick={submitPrayerReport}
