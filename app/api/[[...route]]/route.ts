@@ -243,6 +243,19 @@ const reportSchema = z.object({
       proofPhotoObjectKey: z.string().trim().max(600).optional(),
     })
     .optional(),
+  silaturahimHistory: z
+    .array(
+      z.object({
+        teacherName: z.string().trim().min(1).max(160),
+        location: z.string().trim().min(1).max(220),
+        recordedAt: z.string().trim().min(1).max(40),
+        purpose: z.string().trim().max(500).optional(),
+        lessonSummary: z.string().trim().max(800).optional(),
+        proofPhotoUrl: z.string().trim().max(1200).optional(),
+        proofPhotoObjectKey: z.string().trim().max(600).optional(),
+      }),
+    )
+    .optional(),
   kultumReport: z
     .object({
       teacherVideoId: z.number().int().positive(),
@@ -271,6 +284,14 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
   const me = c.get("user");
   const payload = c.req.valid("json");
   const reportDate = todayDateString();
+
+  const existingReport = await db.query.dailyReports.findFirst({
+    where: and(
+      eq(dailyReports.userId, me.id),
+      eq(dailyReports.reportDate, reportDate),
+    ),
+  });
+
   const allMissions = await db
     .select({
       id: missions.id,
@@ -321,15 +342,15 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
 
   let normalizedKultumReport:
     | {
-        teacherVideoId: number;
-        videoId: string;
-        youtubeUrl: string;
-        title: string;
-        ustadz?: string;
-        ringkasan: string;
-        poinPelajaran: string[];
-        submittedAt: string;
-      }
+      teacherVideoId: number;
+      videoId: string;
+      youtubeUrl: string;
+      title: string;
+      ustadz?: string;
+      ringkasan: string;
+      poinPelajaran: string[];
+      submittedAt: string;
+    }
     | undefined;
   if (payload.kultumReport) {
     const selectedVideo = await db.query.teacherVideos.findFirst({
@@ -380,6 +401,11 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
     selectedMissionIds,
   });
 
+  const silaturahimHistory =
+    payload.silaturahimHistory ||
+    existingReport?.answers?.silaturahimHistory ||
+    [];
+
   await db
     .insert(dailyReports)
     .values({
@@ -400,6 +426,7 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
         idulfitriReport: payload.idulfitriReport,
         zakatFitrah: payload.zakatFitrah,
         silaturahimReport: payload.silaturahimReport,
+        silaturahimHistory,
         kultumReport: normalizedKultumReport,
       },
     })
@@ -421,6 +448,7 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
           idulfitriReport: payload.idulfitriReport,
           zakatFitrah: payload.zakatFitrah,
           silaturahimReport: payload.silaturahimReport,
+          silaturahimHistory,
           kultumReport: normalizedKultumReport,
         },
         updatedAt: new Date(),
@@ -497,30 +525,30 @@ app.get(
     const ranking =
       scope === "classroom" && currentUser.classroom
         ? await db
-            .select({
-              id: users.id,
-              name: users.name,
-              image: users.image,
-              classroom: users.classroom,
-              totalXp: users.totalXp,
-              currentStreak: users.currentStreak,
-            })
-            .from(users)
-            .where(eq(users.classroom, currentUser.classroom))
-            .orderBy(desc(users.totalXp))
-            .limit(50)
+          .select({
+            id: users.id,
+            name: users.name,
+            image: users.image,
+            classroom: users.classroom,
+            totalXp: users.totalXp,
+            currentStreak: users.currentStreak,
+          })
+          .from(users)
+          .where(eq(users.classroom, currentUser.classroom))
+          .orderBy(desc(users.totalXp))
+          .limit(50)
         : await db
-            .select({
-              id: users.id,
-              name: users.name,
-              image: users.image,
-              classroom: users.classroom,
-              totalXp: users.totalXp,
-              currentStreak: users.currentStreak,
-            })
-            .from(users)
-            .orderBy(desc(users.totalXp))
-            .limit(50);
+          .select({
+            id: users.id,
+            name: users.name,
+            image: users.image,
+            classroom: users.classroom,
+            totalXp: users.totalXp,
+            currentStreak: users.currentStreak,
+          })
+          .from(users)
+          .orderBy(desc(users.totalXp))
+          .limit(50);
 
     return c.json({
       scope,

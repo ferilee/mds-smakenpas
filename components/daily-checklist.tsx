@@ -771,6 +771,17 @@ export function DailyChecklist({
   const [silaturahimPhotoUploading, setSilaturahimPhotoUploading] =
     useState(false);
   const [silaturahimStatus, setSilaturahimStatus] = useState("");
+  const [silaturahimHistory, setSilaturahimHistory] = useState<
+    {
+      teacherName: string;
+      location: string;
+      recordedAt: string;
+      purpose?: string;
+      lessonSummary?: string;
+      proofPhotoUrl?: string;
+      proofPhotoObjectKey?: string;
+    }[]
+  >([]);
   const [kultumForm, setKultumForm] = useState<KultumForm>({
     teacherVideoId: "",
     ringkasan: "",
@@ -1024,6 +1035,11 @@ export function DailyChecklist({
               createEmptySilaturahimForm(new Date().toISOString()),
             );
           }
+          if (tData.report.answers.silaturahimHistory) {
+            setSilaturahimHistory(tData.report.answers.silaturahimHistory);
+          } else {
+            setSilaturahimHistory([]);
+          }
           if (tData.report.answers.zakatFitrah) {
             setZakatForm({
               via: tData.report.answers.zakatFitrah.via || "",
@@ -1056,6 +1072,7 @@ export function DailyChecklist({
         setSilaturahimForm(
           createEmptySilaturahimForm(new Date().toISOString()),
         );
+        setSilaturahimHistory([]);
       }
 
       if (cRes.ok) {
@@ -1250,7 +1267,7 @@ export function DailyChecklist({
         ...dated[0],
         at: new Date(
           parseTimeForDate(new Date(now), dated[0].time).getTime() +
-            24 * 3600 * 1000,
+          24 * 3600 * 1000,
         ),
       };
       current = dated[dated.length - 1];
@@ -1724,8 +1741,14 @@ export function DailyChecklist({
       }
       setSelected(selectedMissionIds);
       setChecklistTimestamps(nextChecklistTimestamps);
+
+      const newHistoryItem = { ...silaturahimForm };
+      const nextHistory = [...silaturahimHistory, newHistoryItem];
+      setSilaturahimHistory(nextHistory);
+      setSilaturahimForm(createEmptySilaturahimForm(new Date().toISOString()));
+
       setSilaturahimStatus(
-        "Laporan Silaturahim berhasil dikirim. Anda dapat memperbarui laporan kembali kapan saja.",
+        "Laporan Silaturahim berhasil dikirim. Form telah direset.",
       );
       if (!alreadyCompleted) {
         setSunnahRewardName(activePilarMission.title);
@@ -1960,15 +1983,15 @@ export function DailyChecklist({
 
   const prayerGrid = schedule
     ? [
-        { label: "Imsak", value: schedule.times.imsak },
-        { label: "Subuh", value: schedule.times.subuh },
-        { label: "Terbit", value: schedule.times.terbit },
-        { label: "Dhuha", value: schedule.times.dhuha },
-        { label: "Dzuhur", value: schedule.times.dzuhur },
-        { label: "Ashar", value: schedule.times.ashar },
-        { label: "Maghrib", value: schedule.times.maghrib },
-        { label: "Isya", value: schedule.times.isya },
-      ]
+      { label: "Imsak", value: schedule.times.imsak },
+      { label: "Subuh", value: schedule.times.subuh },
+      { label: "Terbit", value: schedule.times.terbit },
+      { label: "Dhuha", value: schedule.times.dhuha },
+      { label: "Dzuhur", value: schedule.times.dzuhur },
+      { label: "Ashar", value: schedule.times.ashar },
+      { label: "Maghrib", value: schedule.times.maghrib },
+      { label: "Isya", value: schedule.times.isya },
+    ]
     : [];
   const prayerReportRows = [
     { label: "Subuh", value: schedule?.times.subuh || "--:--" },
@@ -2068,11 +2091,10 @@ export function DailyChecklist({
               onClick={() => setActiveCategory(item.target)}
               title={item.label}
               aria-label={item.label}
-              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${
-                activeCategory === item.target
-                  ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
-                  : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
-              }`}
+              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${activeCategory === item.target
+                ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
+                : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
+                }`}
             >
               <BottomNavIcon label={item.label} />
               <span className="text-[10px] font-semibold uppercase tracking-[0.05em]">
@@ -2085,11 +2107,10 @@ export function DailyChecklist({
               href={item.href}
               title={item.label}
               aria-label={item.label}
-              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${
-                pathname === item.href
-                  ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
-                  : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
-              }`}
+              className={`flex h-[62px] flex-col items-center justify-center gap-1 rounded-xl px-1 ${pathname === item.href
+                ? "border border-brand-200/80 bg-white/15 text-white dark:border-brand-500/50 dark:bg-brand-900/40 dark:text-brand-200"
+                : "text-brand-100/85 hover:text-white dark:text-slate-300 dark:hover:text-slate-100"
+                }`}
             >
               <BottomNavIcon label={item.label} />
               <span className="text-[10px] font-semibold uppercase tracking-[0.05em]">
@@ -2207,20 +2228,18 @@ export function DailyChecklist({
                 <button
                   type="button"
                   onClick={() => setReminderOn((prev) => !prev)}
-                  className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs ${
-                    reminderOn
-                      ? "border-brand-200/20 bg-brand-900/35 text-brand-100"
-                      : "border-slate-400/25 bg-slate-800/60 text-slate-300"
-                  }`}
+                  className={`mt-3 flex w-full items-center justify-between rounded-xl border px-3 py-2 text-xs ${reminderOn
+                    ? "border-brand-200/20 bg-brand-900/35 text-brand-100"
+                    : "border-slate-400/25 bg-slate-800/60 text-slate-300"
+                    }`}
                   aria-pressed={reminderOn}
                 >
                   <span>Suara Pengingat Sholat</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 font-semibold ${
-                      reminderOn
-                        ? "bg-emerald-400/20 text-emerald-200"
-                        : "bg-slate-300/20 text-slate-200"
-                    }`}
+                    className={`rounded-full px-2 py-0.5 font-semibold ${reminderOn
+                      ? "bg-emerald-400/20 text-emerald-200"
+                      : "bg-slate-300/20 text-slate-200"
+                      }`}
                   >
                     {reminderOn ? "ON" : "OFF"}
                   </span>
@@ -2237,16 +2256,14 @@ export function DailyChecklist({
                   return (
                     <article
                       key={item.label}
-                      className={`rounded-2xl border px-2 py-3 text-center transition ${
-                        active
-                          ? "border-amber-500/70 bg-gradient-to-br from-amber-900/40 to-amber-950/50 text-amber-200 shadow-[0_8px_24px_rgba(244,160,54,0.18)]"
-                          : "border-brand-300/25 bg-gradient-to-b from-brand-900/40 to-slate-900/60 text-slate-100"
-                      }`}
+                      className={`rounded-2xl border px-2 py-3 text-center transition ${active
+                        ? "border-amber-500/70 bg-gradient-to-br from-amber-900/40 to-amber-950/50 text-amber-200 shadow-[0_8px_24px_rgba(244,160,54,0.18)]"
+                        : "border-brand-300/25 bg-gradient-to-b from-brand-900/40 to-slate-900/60 text-slate-100"
+                        }`}
                     >
                       <p
-                        className={`text-[11px] sm:text-sm ${
-                          active ? "text-amber-200/95" : "text-brand-100/80"
-                        }`}
+                        className={`text-[11px] sm:text-sm ${active ? "text-amber-200/95" : "text-brand-100/80"
+                          }`}
                       >
                         {item.label}
                       </p>
@@ -2287,11 +2304,10 @@ export function DailyChecklist({
                   key={item.key}
                   type="button"
                   onClick={() => setActiveCategory(item.key)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${
-                    activeCategory === item.key
-                      ? "border-white/70 bg-white text-brand-800"
-                      : "border-white/35 bg-white/10 text-brand-50 hover:bg-white/15"
-                  }`}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${activeCategory === item.key
+                    ? "border-white/70 bg-white text-brand-800"
+                    : "border-white/35 bg-white/10 text-brand-50 hover:bg-white/15"
+                    }`}
                 >
                   {item.label}
                 </button>
@@ -2342,20 +2358,19 @@ export function DailyChecklist({
                         ? murajaahPercent
                         : isShalatLimaWaktu
                           ? Math.round(
-                              (reportedPrayerCount / prayerReportOrder.length) *
-                                100,
-                            )
+                            (reportedPrayerCount / prayerReportOrder.length) *
+                            100,
+                          )
                           : done
                             ? 100
                             : 0;
                       return (
                         <article key={m.id} className="relative">
                           <span
-                            className={`absolute -left-[31px] top-16 h-4 w-4 rounded-full border-2 ${
-                              done
-                                ? "border-emerald-200 bg-emerald-400"
-                                : "border-brand-100 bg-white"
-                            }`}
+                            className={`absolute -left-[31px] top-16 h-4 w-4 rounded-full border-2 ${done
+                              ? "border-emerald-200 bg-emerald-400"
+                              : "border-brand-100 bg-white"
+                              }`}
                           />
                           <button
                             type="button"
@@ -2495,9 +2510,8 @@ export function DailyChecklist({
       {activePilarMission ? (
         <div className="fixed inset-0 z-[130] flex items-end bg-slate-950/45 p-0 sm:p-4">
           <div
-            className={`flex max-h-[95dvh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${
-              pilarSheetOpen ? "translate-y-0" : "translate-y-12"
-            }`}
+            className={`flex max-h-[95dvh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${pilarSheetOpen ? "translate-y-0" : "translate-y-12"
+              }`}
           >
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-slate-300 sm:hidden" />
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -2507,11 +2521,10 @@ export function DailyChecklist({
             {activePilarMission.code === "SHALAT_IDULFITRI" ? (
               <div className="mt-3 space-y-3">
                 <div
-                  className={`rounded-2xl border p-3 text-sm ${
-                    isIdulfitriFormActive
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200"
-                      : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
-                  }`}
+                  className={`rounded-2xl border p-3 text-sm ${isIdulfitriFormActive
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200"
+                    : "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
+                    }`}
                 >
                   {isIdulfitriFormActive
                     ? "Form Shalat Idulfitri aktif hari ini (1 Syawal)."
@@ -2611,11 +2624,10 @@ export function DailyChecklist({
                             prayerReports[item.label] || "Berjamaah",
                           );
                         }}
-                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white ${
-                          prayerReports[item.label]
-                            ? "cursor-not-allowed bg-slate-400 dark:bg-slate-600"
-                            : "bg-brand-600 hover:bg-brand-700"
-                        }`}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white ${prayerReports[item.label]
+                          ? "cursor-not-allowed bg-slate-400 dark:bg-slate-600"
+                          : "bg-brand-600 hover:bg-brand-700"
+                          }`}
                       >
                         {prayerReports[item.label] ? "Sudah Dilapor" : "Lapor"}
                       </button>
@@ -2791,7 +2803,7 @@ export function DailyChecklist({
               </div>
             ) : null}
             {activePilarMission.code === "SILATURAHIM" ||
-            activePilarMission.code === "SILATURRAHIM_RAMADAN" ? (
+              activePilarMission.code === "SILATURRAHIM_RAMADAN" ? (
               <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
                 <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
                   Form Laporan Silaturahim
@@ -2932,9 +2944,60 @@ export function DailyChecklist({
                       : "Kunjungan Selesai"}
                 </button>
                 {silaturahimStatus ? (
-                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                  <p className="mt-2 text-xs text-brand-600 font-medium dark:text-brand-400">
                     {silaturahimStatus}
                   </p>
+                ) : null}
+
+                {silaturahimHistory.length > 0 ? (
+                  <div className="mt-6 space-y-3">
+                    <p className="border-t border-slate-200 pt-4 text-sm font-bold text-slate-800 dark:border-slate-700 dark:text-slate-100">
+                      Daftar History Kunjungan
+                    </p>
+                    <div className="space-y-3">
+                      {silaturahimHistory.map((item, idx) => (
+                        <div
+                          key={`${item.recordedAt}-${idx}`}
+                          className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-700 dark:bg-slate-900/40"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-xs font-bold text-brand-700 dark:text-brand-300 uppercase">
+                                {item.teacherName}
+                              </p>
+                              <p className="mt-0.5 text-[10px] text-slate-500 dark:text-slate-400">
+                                {formatRecordedAt(item.recordedAt)}
+                              </p>
+                            </div>
+                            {item.proofPhotoUrl ? (
+                              <img
+                                src={item.proofPhotoUrl}
+                                alt="Bukti"
+                                className="h-10 w-10 rounded-lg object-cover ring-1 ring-slate-200 dark:ring-slate-700"
+                              />
+                            ) : null}
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-slate-600 dark:text-slate-300">
+                            <p>
+                              <span className="font-semibold">Lokasi:</span>{" "}
+                              {item.location}
+                            </p>
+                            {item.purpose ? (
+                              <p>
+                                <span className="font-semibold">Tujuan:</span>{" "}
+                                {item.purpose}
+                              </p>
+                            ) : null}
+                            {item.lessonSummary ? (
+                              <p className="italic">
+                                "{item.lessonSummary}"
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -2987,84 +3050,156 @@ export function DailyChecklist({
                   Catatan Ceramah Agama / Kultum Ramadan
                 </p>
                 <div className="space-y-2">
-                  <label className="block text-xs text-slate-600 dark:text-slate-300">
-                    1. Pilih video dari guru
-                    <select
-                      value={kultumForm.teacherVideoId}
-                      onChange={(e) =>
-                        setKultumForm((prev) => ({
-                          ...prev,
-                          teacherVideoId: e.target.value,
-                        }))
-                      }
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
-                    >
-                      <option value="">Pilih video...</option>
-                      {teacherVideos.map((video) => (
-                        <option key={video.id} value={String(video.id)}>
-                          {video.title}
-                        </option>
-                      ))}
-                    </select>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-200">
+                    1. Pilih video ceramah untuk disimak:
                   </label>
+                  <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {teacherVideos.map((video) => {
+                      const isSelected =
+                        kultumForm.teacherVideoId === String(video.id);
+                      return (
+                        <button
+                          key={video.id}
+                          type="button"
+                          onClick={() =>
+                            setKultumForm((prev) => ({
+                              ...prev,
+                              teacherVideoId: String(video.id),
+                            }))
+                          }
+                          className={`group relative overflow-hidden rounded-xl border-2 text-left transition-all ${isSelected
+                            ? "border-brand-600 bg-brand-50/50 ring-4 ring-brand-500/10 dark:border-brand-500 dark:bg-brand-900/20"
+                            : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900/50"
+                            }`}
+                        >
+                          <div className="relative aspect-video w-full overflow-hidden bg-slate-100 dark:bg-slate-800">
+                            <img
+                              src={`https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`}
+                              alt={video.title}
+                              className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder-video.png"; // Fallback
+                              }}
+                            />
+                            {isSelected && (
+                              <div className="absolute inset-0 flex items-center justify-center bg-brand-600/20 backdrop-blur-[1px]">
+                                <div className="rounded-full bg-brand-600 p-1.5 text-white shadow-lg">
+                                  <svg
+                                    className="h-5 w-5"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path
+                                      fillRule="evenodd"
+                                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                      clipRule="evenodd"
+                                    />
+                                  </svg>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="p-2">
+                            <p className="line-clamp-2 text-[11px] font-bold leading-tight text-slate-800 dark:text-slate-100">
+                              {video.title}
+                            </p>
+                            <p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+                              {video.ustadz || "Pemateri Ustadz"}
+                            </p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
                   {selectedKultumVideo ? (
-                    <div className="rounded-xl border border-slate-300 bg-white p-3 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-200">
-                      <p className="font-semibold">
-                        {selectedKultumVideo.title}
-                      </p>
-                      <p className="mt-1">
-                        {selectedKultumVideo.ustadz
-                          ? `Pemateri: ${selectedKultumVideo.ustadz}`
-                          : "Pemateri: -"}
-                      </p>
-                      <a
-                        href={selectedKultumVideo.youtubeUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 inline-block text-brand-700 underline dark:text-brand-300"
+                    <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/40">
+                        <div className="flex gap-4">
+                          <img
+                            src={`https://img.youtube.com/vi/${selectedKultumVideo.videoId}/mqdefault.jpg`}
+                            alt={selectedKultumVideo.title}
+                            className="h-20 w-32 rounded-lg object-cover shadow-sm ring-1 ring-slate-200 dark:ring-slate-700"
+                          />
+                          <div className="flex-1">
+                            <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                              {selectedKultumVideo.title}
+                            </p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              {selectedKultumVideo.ustadz || "Pemateri"}
+                            </p>
+                            <a
+                              href={selectedKultumVideo.youtubeUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-bold text-white transition hover:bg-red-700"
+                            >
+                              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z" />
+                              </svg>
+                              Tonton Video
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3">
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                          2. Ringkasan isi ceramah (min. 120 karakter)
+                          <textarea
+                            value={kultumForm.ringkasan}
+                            onChange={(e) =>
+                              setKultumForm((prev) => ({
+                                ...prev,
+                                ringkasan: e.target.value,
+                              }))
+                            }
+                            placeholder="Tuliskan apa yang kamu pelajari dari video tersebut..."
+                            className="mt-1.5 min-h-[140px] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm ring-brand-500/20 transition focus:border-brand-500 focus:ring-4 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
+                          />
+                        </label>
+                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                          3. Poin pelajaran (max. 3 baris)
+                          <textarea
+                            value={kultumForm.poinPelajaranText}
+                            onChange={(e) =>
+                              setKultumForm((prev) => ({
+                                ...prev,
+                                poinPelajaranText: e.target.value,
+                              }))
+                            }
+                            placeholder="- Poin 1&#10;- Poin 2&#10;- Poin 3"
+                            className="mt-1.5 min-h-[90px] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm shadow-sm ring-brand-500/20 transition focus:border-brand-500 focus:ring-4 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
+                          />
+                        </label>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={submitKultumReport}
+                        disabled={kultumSubmitting}
+                        className="w-full rounded-2xl bg-gradient-to-r from-brand-600 to-brand-700 px-6 py-4 text-sm font-bold text-white shadow-lg shadow-brand-900/20 transition hover:from-brand-700 hover:to-brand-800 disabled:opacity-60 active:scale-[0.98]"
                       >
-                        Buka video YouTube
-                      </a>
+                        {kultumSubmitting ? "Mengirim Laporan..." : "Simpan Catatan Kultum"}
+                      </button>
                     </div>
-                  ) : null}
-                  <label className="block text-xs text-slate-600 dark:text-slate-300">
-                    2. Ringkasan isi ceramah (minimal 120 karakter)
-                    <textarea
-                      value={kultumForm.ringkasan}
-                      onChange={(e) =>
-                        setKultumForm((prev) => ({
-                          ...prev,
-                          ringkasan: e.target.value,
-                        }))
-                      }
-                      className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
-                    />
-                  </label>
-                  <label className="block text-xs text-slate-600 dark:text-slate-300">
-                    3. Poin pelajaran (maksimal 3 baris)
-                    <textarea
-                      value={kultumForm.poinPelajaranText}
-                      onChange={(e) =>
-                        setKultumForm((prev) => ({
-                          ...prev,
-                          poinPelajaranText: e.target.value,
-                        }))
-                      }
-                      placeholder="- Poin 1&#10;- Poin 2"
-                      className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
-                    />
-                  </label>
+                  ) : (
+                    <div className="mt-8 rounded-2xl border border-dashed border-slate-200 p-8 text-center dark:border-slate-800">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-50 dark:bg-slate-800">
+                        <svg className="h-6 w-6 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                          <path d="M8 21h8" />
+                          <path d="M12 17v4" />
+                          <path d="M10 8l5 4-5 4V8z" />
+                        </svg>
+                      </div>
+                      <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Silakan pilih video di atas untuk mulai mengisi catatan.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <button
-                  type="button"
-                  onClick={submitKultumReport}
-                  disabled={kultumSubmitting}
-                  className="mt-3 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
-                >
-                  {kultumSubmitting ? "Mengirim..." : "Kirim Catatan Kultum"}
-                </button>
                 {kultumStatus ? (
-                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                  <p className="mt-3 text-center text-xs font-medium text-brand-600 dark:text-brand-400">
                     {kultumStatus}
                   </p>
                 ) : null}
@@ -3251,11 +3386,10 @@ export function DailyChecklist({
                         key={idea}
                         type="button"
                         onClick={() => addSunnahIdea(idea)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                          active
-                            ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                            : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-800"
-                        }`}
+                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${active
+                          ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200 dark:hover:bg-slate-800"
+                          }`}
                       >
                         {active ? "Terpilih: " : ""}
                         {idea}
@@ -3429,11 +3563,10 @@ export function DailyChecklist({
                   key={mode}
                   type="button"
                   onClick={() => setPrayerModeDraft(mode)}
-                  className={`flex min-h-[118px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-sm ${
-                    prayerModeDraft === mode
-                      ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
-                      : "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
-                  }`}
+                  className={`flex min-h-[118px] w-full flex-col items-center justify-center rounded-xl border px-3 py-3 text-sm ${prayerModeDraft === mode
+                    ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/30 dark:text-brand-200"
+                    : "border-slate-300 text-slate-700 dark:border-slate-700 dark:text-slate-200"
+                    }`}
                 >
                   {mode === "Berjamaah" ? (
                     <svg

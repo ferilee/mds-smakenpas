@@ -122,6 +122,15 @@ export const dailyReports = pgTable(
           poinPelajaran: string[];
           submittedAt: string;
         };
+        silaturahimHistory?: {
+          teacherName: string;
+          location: string;
+          recordedAt: string;
+          purpose?: string;
+          lessonSummary?: string;
+          proofPhotoUrl?: string;
+          proofPhotoObjectKey?: string;
+        }[];
       }>()
       .notNull(),
     narration: text("narration"),
