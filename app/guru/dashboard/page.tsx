@@ -8,7 +8,6 @@ import { PDFExportButton } from "@/components/pdf-export-button";
 import { dailyReports, missions, users, type DailyReport } from "@/db/schema";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getSilaturahimProofReadUrl } from "@/lib/minio";
 import { todayDateString } from "@/lib/xp";
 import { StudentFilter } from "./student-filter";
 
@@ -269,24 +268,14 @@ export default async function GuruDashboardPage({
   const selectedStudentSilaturahimProofRaw = getSilaturahimProof(
     selectedStudentTodayReport,
   );
-  let selectedStudentSilaturahimPhotoUrl =
-    selectedStudentSilaturahimProofRaw?.photoUrl || "";
-  if (selectedStudentSilaturahimProofRaw?.objectKey) {
-    try {
-      selectedStudentSilaturahimPhotoUrl = await getSilaturahimProofReadUrl(
-        selectedStudentSilaturahimProofRaw.objectKey,
-      );
-    } catch (error) {
-      console.error(
-        "[guru-dashboard] failed to create presigned silaturahim URL:",
-        error,
-      );
-    }
-  }
   const selectedStudentSilaturahimProof = selectedStudentSilaturahimProofRaw
     ? {
         ...selectedStudentSilaturahimProofRaw,
-        photoUrl: selectedStudentSilaturahimPhotoUrl,
+        photoUrl: selectedStudentSilaturahimProofRaw.objectKey
+          ? `/api/uploads/silaturahim/proof?key=${encodeURIComponent(
+              selectedStudentSilaturahimProofRaw.objectKey,
+            )}`
+          : selectedStudentSilaturahimProofRaw.photoUrl,
       }
     : null;
 

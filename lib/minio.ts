@@ -100,3 +100,22 @@ export async function getSilaturahimProofReadUrl(
   const cfg = getMinioConfig();
   return cfg.client.presignedGetObject(cfg.bucket, objectKey, expirySeconds);
 }
+
+export async function getSilaturahimProofObject(objectKey: string) {
+  const cfg = getMinioConfig();
+  const stat = await cfg.client.statObject(cfg.bucket, objectKey);
+  const stream = await cfg.client.getObject(cfg.bucket, objectKey);
+
+  const contentType =
+    stat.metaData?.["content-type"] ||
+    stat.metaData?.["Content-Type"] ||
+    "application/octet-stream";
+
+  return {
+    stream,
+    contentType,
+    size: stat.size,
+    etag: stat.etag,
+    lastModified: stat.lastModified?.toUTCString() || "",
+  };
+}
