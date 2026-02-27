@@ -79,6 +79,20 @@ type SilaturahimForm = {
   proofPhotoUrl: string;
   proofPhotoObjectKey: string;
 };
+
+function createEmptySilaturahimForm(
+  recordedAt = new Date().toISOString(),
+): SilaturahimForm {
+  return {
+    teacherName: "",
+    location: "",
+    recordedAt,
+    purpose: "",
+    lessonSummary: "",
+    proofPhotoUrl: "",
+    proofPhotoObjectKey: "",
+  };
+}
 type KultumForm = {
   teacherVideoId: string;
   ringkasan: string;
@@ -750,15 +764,9 @@ export function DailyChecklist({
   });
   const [idulfitriSubmitting, setIdulfitriSubmitting] = useState(false);
   const [idulfitriStatus, setIdulfitriStatus] = useState("");
-  const [silaturahimForm, setSilaturahimForm] = useState<SilaturahimForm>({
-    teacherName: "",
-    location: "",
-    recordedAt: new Date().toISOString(),
-    purpose: "",
-    lessonSummary: "",
-    proofPhotoUrl: "",
-    proofPhotoObjectKey: "",
-  });
+  const [silaturahimForm, setSilaturahimForm] = useState<SilaturahimForm>(
+    createEmptySilaturahimForm(),
+  );
   const [silaturahimSubmitting, setSilaturahimSubmitting] = useState(false);
   const [silaturahimPhotoUploading, setSilaturahimPhotoUploading] =
     useState(false);
@@ -1011,6 +1019,10 @@ export function DailyChecklist({
                 tData.report.answers.silaturahimReport.proofPhotoObjectKey ||
                 "",
             });
+          } else {
+            setSilaturahimForm(
+              createEmptySilaturahimForm(new Date().toISOString()),
+            );
           }
           if (tData.report.answers.zakatFitrah) {
             setZakatForm({
@@ -1041,6 +1053,9 @@ export function DailyChecklist({
       } else {
         setChecklistTimestamps({});
         setPrayerReportTimestamps({});
+        setSilaturahimForm(
+          createEmptySilaturahimForm(new Date().toISOString()),
+        );
       }
 
       if (cRes.ok) {
@@ -1105,8 +1120,9 @@ export function DailyChecklist({
   useEffect(() => {
     if (!reportDateKey) return;
     setSilaturahimForm((prev) => {
-      if (prev.recordedAt) return prev;
-      return { ...prev, recordedAt: new Date().toISOString() };
+      const prevDate = prev.recordedAt ? prev.recordedAt.slice(0, 10) : "";
+      if (prevDate === reportDateKey) return prev;
+      return createEmptySilaturahimForm(new Date().toISOString());
     });
   }, [reportDateKey]);
 
@@ -2479,7 +2495,7 @@ export function DailyChecklist({
       {activePilarMission ? (
         <div className="fixed inset-0 z-[130] flex items-end bg-slate-950/45 p-0 sm:p-4">
           <div
-            className={`w-full rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${
+            className={`flex max-h-[95dvh] w-full flex-col overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 transition-transform duration-300 sm:mx-auto sm:max-h-[90dvh] sm:max-w-lg sm:rounded-3xl dark:bg-slate-900 dark:ring-slate-800 ${
               pilarSheetOpen ? "translate-y-0" : "translate-y-12"
             }`}
           >
