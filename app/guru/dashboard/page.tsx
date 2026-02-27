@@ -91,18 +91,36 @@ function buildHref(input: Record<string, string | undefined>) {
     : ("/guru/dashboard" as Route);
 }
 
+function getSilaturahimProof(report: ReportRow | undefined) {
+  const silaturahimReport = report?.answers?.silaturahimReport;
+  if (!silaturahimReport) return null;
+  const photoUrl =
+    silaturahimReport.proofPhotoUrl ||
+    silaturahimReport.proofPhotoDataUrl ||
+    "";
+
+  return {
+    teacherName: silaturahimReport.teacherName || "",
+    location: silaturahimReport.location || "",
+    recordedAt: silaturahimReport.recordedAt || "",
+    lessonSummary: silaturahimReport.lessonSummary || "",
+    photoUrl,
+  };
+}
+
 export default async function GuruDashboardPage({
   searchParams,
 }: GuruDashboardPageProps) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  if (session.user.role !== "guru" && session.user.role !== "admin") redirect("/dashboard");
+  if (session.user.role !== "guru" && session.user.role !== "admin")
+    redirect("/dashboard");
 
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const today = todayDateString();
   const selectedDate =
     resolvedSearchParams?.date &&
-      /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
+    /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
       ? resolvedSearchParams.date
       : today;
   const previousDate = shiftDate(selectedDate, -1);
@@ -170,9 +188,12 @@ export default async function GuruDashboardPage({
 
   const students: StudentRow[] = allStudents.filter((row) => {
     const roleMatch = row.role === "siswa" || row.role === "user";
-    const classMatch = !selectedClassroom || (row.classroom || "") === selectedClassroom;
+    const classMatch =
+      !selectedClassroom || (row.classroom || "") === selectedClassroom;
     const majorMatch = !selectedMajor || (row.major || "") === selectedMajor;
-    const nameMatch = !studentSearchQuery || row.name.toLowerCase().includes(studentSearchQuery.toLowerCase());
+    const nameMatch =
+      !studentSearchQuery ||
+      row.name.toLowerCase().includes(studentSearchQuery.toLowerCase());
     return roleMatch && classMatch && majorMatch && nameMatch;
   });
   const studentIds = new Set(students.map((row) => row.id));
@@ -180,13 +201,17 @@ export default async function GuruDashboardPage({
     studentIds.has(row.userId),
   );
 
-  const reportsToday = scopedReports.filter((row) => row.reportDate === selectedDate);
+  const reportsToday = scopedReports.filter(
+    (row) => row.reportDate === selectedDate,
+  );
   const reportByUserId = new Map(reportsToday.map((r) => [r.userId, r]));
   const missionTitleMap = new Map(activeMissions.map((m) => [m.id, m.title]));
   const reportsPrevious = scopedReports.filter(
     (row) => row.reportDate === previousDate,
   );
-  const reportsByUserToday = new Map(reportsToday.map((row) => [row.userId, row]));
+  const reportsByUserToday = new Map(
+    reportsToday.map((row) => [row.userId, row]),
+  );
 
   const totalStudents = students.length;
   const submittedStudents = reportsToday.length;
@@ -195,9 +220,9 @@ export default async function GuruDashboardPage({
     : 0;
   const avgXpPerSubmit = submittedStudents
     ? Math.round(
-      reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
-      submittedStudents,
-    )
+        reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
+          submittedStudents,
+      )
     : 0;
 
   const missionCompletionTarget = Math.max(
@@ -239,6 +264,9 @@ export default async function GuruDashboardPage({
   const selectedStudentTodayReport = selectedStudent
     ? reportsByUserToday.get(selectedStudent.id)
     : undefined;
+  const selectedStudentSilaturahimProof = getSilaturahimProof(
+    selectedStudentTodayReport,
+  );
 
   const shalatSummary = reportsToday.reduce(
     (acc, row) => {
@@ -296,7 +324,9 @@ export default async function GuruDashboardPage({
 
   const sortedMonitoringRows = siswaMonitoringRows.sort((a, b) => {
     const statusOrder = { "Belum Isi": 0, Sebagian: 1, Lengkap: 2 } as const;
-    const statusDiff = statusOrder[a.status as keyof typeof statusOrder] - statusOrder[b.status as keyof typeof statusOrder];
+    const statusDiff =
+      statusOrder[a.status as keyof typeof statusOrder] -
+      statusOrder[b.status as keyof typeof statusOrder];
     if (statusDiff !== 0) return statusDiff;
     return a.name.localeCompare(b.name, "id");
   });
@@ -319,7 +349,15 @@ export default async function GuruDashboardPage({
   const riskPagination = paginate(atRiskStudents, riskPage, 8);
 
   const monitoringCsv = [
-    ["Nama", "Kelas", "Jurusan", "Status", "Misi Selesai", "XP Hari Ini", "Streak"],
+    [
+      "Nama",
+      "Kelas",
+      "Jurusan",
+      "Status",
+      "Misi Selesai",
+      "XP Hari Ini",
+      "Streak",
+    ],
     ...sortedMonitoringRows.map((row) => [
       row.name,
       row.classroom || "Tanpa kelas",
@@ -335,7 +373,13 @@ export default async function GuruDashboardPage({
   const monitoringCsvHref = `data:text/csv;charset=utf-8,${encodeURIComponent(monitoringCsv)}`;
 
   const missionCsv = [
-    ["Misi", "Selesai Hari Ini", "Total Siswa", "Persentase", "Trend vs Kemarin"],
+    [
+      "Misi",
+      "Selesai Hari Ini",
+      "Total Siswa",
+      "Persentase",
+      "Trend vs Kemarin",
+    ],
     ...missionProgress.map((row) => [
       row.title,
       String(row.todayCount),
@@ -350,20 +394,22 @@ export default async function GuruDashboardPage({
 
   const selectedStudentCsv = selectedStudent
     ? [
-      ["Tanggal", "Misi Selesai", "XP Didapat", "Narasi/Refleksi"],
-      ...timelineDays.map((day) => {
-        const report = selectedStudentReportByDate.get(day);
-        const missionCount = report ? asArray(report.answers?.selectedMissionIds).length : 0;
-        return [
-          day,
-          String(missionCount),
-          String(report?.xpGained || 0),
-          report?.narration || "-",
-        ];
-      }),
-    ]
-      .map((line) => line.map(csvEscape).join(","))
-      .join("\n")
+        ["Tanggal", "Misi Selesai", "XP Didapat", "Narasi/Refleksi"],
+        ...timelineDays.map((day) => {
+          const report = selectedStudentReportByDate.get(day);
+          const missionCount = report
+            ? asArray(report.answers?.selectedMissionIds).length
+            : 0;
+          return [
+            day,
+            String(missionCount),
+            String(report?.xpGained || 0),
+            report?.narration || "-",
+          ];
+        }),
+      ]
+        .map((line) => line.map(csvEscape).join(","))
+        .join("\n")
     : "";
   const selectedStudentCsvHref = selectedStudent
     ? `data:text/csv;charset=utf-8,${encodeURIComponent(selectedStudentCsv)}`
@@ -380,7 +426,8 @@ export default async function GuruDashboardPage({
             Monitoring Checklist Kelas
           </h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-            {me.name} • Progres checklist siswa terhubung ke data laporan harian.
+            {me.name} • Progres checklist siswa terhubung ke data laporan
+            harian.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -444,7 +491,11 @@ export default async function GuruDashboardPage({
               className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             />
           </label>
-          <input type="hidden" name="studentId" value={selectedStudent?.id || ""} />
+          <input
+            type="hidden"
+            name="studentId"
+            value={selectedStudent?.id || ""}
+          />
           <div className="flex items-end gap-2">
             <button
               type="submit"
@@ -464,25 +515,33 @@ export default async function GuruDashboardPage({
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Siswa Aktif</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Siswa Aktif
+          </p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
             {totalStudents}
           </p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Sudah Isi Checklist</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Sudah Isi Checklist
+          </p>
           <p className="mt-1 text-2xl font-bold text-brand-700 dark:text-brand-300">
             {submittedStudents}
           </p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Completion Rate</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Completion Rate
+          </p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
             {completionPercent}%
           </p>
         </article>
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <p className="text-xs text-slate-500 dark:text-slate-400">Rata-rata XP Harian</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Rata-rata XP Harian
+          </p>
           <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
             {avgXpPerSubmit}
           </p>
@@ -514,8 +573,13 @@ export default async function GuruDashboardPage({
             </thead>
             <tbody>
               {missionProgress.map((row) => (
-                <tr key={row.id} className="border-t border-slate-200 dark:border-slate-700">
-                  <td className="py-2 text-slate-800 dark:text-slate-100">{row.title}</td>
+                <tr
+                  key={row.id}
+                  className="border-t border-slate-200 dark:border-slate-700"
+                >
+                  <td className="py-2 text-slate-800 dark:text-slate-100">
+                    {row.title}
+                  </td>
                   <td className="py-2 text-slate-700 dark:text-slate-200">
                     {row.todayCount}/{totalStudents}
                   </td>
@@ -526,12 +590,13 @@ export default async function GuruDashboardPage({
                   </td>
                   <td className="py-2">
                     <span
-                      className={`text-xs font-semibold ${row.trend > 0
-                        ? "text-emerald-600 dark:text-emerald-400"
-                        : row.trend < 0
-                          ? "text-rose-600 dark:text-rose-400"
-                          : "text-slate-500 dark:text-slate-400"
-                        }`}
+                      className={`text-xs font-semibold ${
+                        row.trend > 0
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : row.trend < 0
+                            ? "text-rose-600 dark:text-rose-400"
+                            : "text-slate-500 dark:text-slate-400"
+                      }`}
                     >
                       {row.trend > 0 ? `+${row.trend}` : row.trend}
                     </span>
@@ -584,17 +649,30 @@ export default async function GuruDashboardPage({
               <tbody>
                 {monitoringPagination.items.map((row) => {
                   const report = reportsByUserToday.get(row.id);
-                  const missionsToday = asArray(report?.answers?.selectedMissionIds)
+                  const missionsToday = asArray(
+                    report?.answers?.selectedMissionIds,
+                  )
                     .map((id) => missionTitleMap.get(id))
                     .filter(Boolean)
                     .join(", ");
 
                   return (
-                    <tr key={row.id} className="border-t border-slate-200 dark:border-slate-700">
-                      <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">{row.name}</td>
-                      <td className="py-2.5 text-slate-600 dark:text-slate-400">{row.classroom || "Tanpa Kelas"}</td>
+                    <tr
+                      key={row.id}
+                      className="border-t border-slate-200 dark:border-slate-700"
+                    >
+                      <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                        {row.name}
+                      </td>
+                      <td className="py-2.5 text-slate-600 dark:text-slate-400">
+                        {row.classroom || "Tanpa Kelas"}
+                      </td>
                       <td className="py-2.5 text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
-                        {missionsToday || <span className="text-slate-400 italic font-normal text-xs">Belum ada</span>}
+                        {missionsToday || (
+                          <span className="text-slate-400 italic font-normal text-xs">
+                            Belum ada
+                          </span>
+                        )}
                       </td>
                       <td className="py-2.5">
                         <div className="flex items-center justify-center gap-1">
@@ -606,26 +684,53 @@ export default async function GuruDashboardPage({
                               studentPage: String(monitoringPagination.page),
                               riskPage: String(riskPagination.page),
                             })}
-                            className={`p-1.5 rounded-lg transition ${selectedStudent?.id === row.id
-                              ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
-                              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                              }`}
+                            className={`p-1.5 rounded-lg transition ${
+                              selectedStudent?.id === row.id
+                                ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+                                : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                            }`}
                             title="Preview"
                           >
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            <svg
+                              className="w-4 h-4"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                              />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                              />
                             </svg>
                           </Link>
                           <PDFExportButton
                             title={`Laporan Detail: ${row.name}`}
                             subtitle={`${row.classroom || "Tanpa Kelas"} | s/d ${selectedDate}`}
                             filename={`laporan-detail-${row.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
-                            headers={["Tanggal", "Misi", "XP", "Narasi/Refleksi"]}
+                            headers={[
+                              "Tanggal",
+                              "Misi",
+                              "XP",
+                              "Narasi/Refleksi",
+                            ]}
                             data={timelineDays.map((day) => {
-                              const studentReports = scopedReports.filter(r => r.userId === row.id);
-                              const r = studentReports.find(sr => sr.reportDate === day);
-                              const selectedIds = asArray(r?.answers?.selectedMissionIds);
+                              const studentReports = scopedReports.filter(
+                                (r) => r.userId === row.id,
+                              );
+                              const r = studentReports.find(
+                                (sr) => sr.reportDate === day,
+                              );
+                              const selectedIds = asArray(
+                                r?.answers?.selectedMissionIds,
+                              );
                               const mNames = selectedIds
                                 .map((id) => missionTitleMap.get(id))
                                 .filter(Boolean)
@@ -639,7 +744,12 @@ export default async function GuruDashboardPage({
                             })}
                             buttonLabel=""
                             orientation="landscape"
-                            margin={{ top: 20, left: 20, right: 20, bottom: 20 }}
+                            margin={{
+                              top: 20,
+                              left: 20,
+                              right: 20,
+                              bottom: 20,
+                            }}
                           />
                         </div>
                       </td>
@@ -649,46 +759,52 @@ export default async function GuruDashboardPage({
               </tbody>
             </table>
           </div>
-          {
-            monitoringPagination.totalPages > 1 ? (
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <Link
-                  href={buildHref({
-                    classroom: selectedClassroom || undefined,
-                    date: selectedDate,
-                    studentId: selectedStudent?.id,
-                    studentPage: String(Math.max(1, monitoringPagination.page - 1)),
-                    riskPage: String(riskPagination.page),
-                  })}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  Sebelumnya
-                </Link>
-                <span className="text-slate-500 dark:text-slate-400">
-                  Halaman {monitoringPagination.page}/{monitoringPagination.totalPages}
-                </span>
-                <Link
-                  href={buildHref({
-                    classroom: selectedClassroom || undefined,
-                    date: selectedDate,
-                    studentId: selectedStudent?.id,
-                    studentPage: String(
-                      Math.min(monitoringPagination.totalPages, monitoringPagination.page + 1),
+          {monitoringPagination.totalPages > 1 ? (
+            <div className="mt-4 flex items-center justify-between text-xs">
+              <Link
+                href={buildHref({
+                  classroom: selectedClassroom || undefined,
+                  date: selectedDate,
+                  studentId: selectedStudent?.id,
+                  studentPage: String(
+                    Math.max(1, monitoringPagination.page - 1),
+                  ),
+                  riskPage: String(riskPagination.page),
+                })}
+                className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Sebelumnya
+              </Link>
+              <span className="text-slate-500 dark:text-slate-400">
+                Halaman {monitoringPagination.page}/
+                {monitoringPagination.totalPages}
+              </span>
+              <Link
+                href={buildHref({
+                  classroom: selectedClassroom || undefined,
+                  date: selectedDate,
+                  studentId: selectedStudent?.id,
+                  studentPage: String(
+                    Math.min(
+                      monitoringPagination.totalPages,
+                      monitoringPagination.page + 1,
                     ),
-                    riskPage: String(riskPagination.page),
-                  })}
-                  className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                >
-                  Berikutnya
-                </Link>
-              </div>
-            ) : null
-          }
+                  ),
+                  riskPage: String(riskPagination.page),
+                })}
+                className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                Berikutnya
+              </Link>
+            </div>
+          ) : null}
         </article>
 
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Detail Siswa Terpilih</h2>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+              Detail Siswa Terpilih
+            </h2>
             <div className="flex items-center gap-2">
               {selectedStudent && (
                 <>
@@ -706,7 +822,9 @@ export default async function GuruDashboardPage({
                     headers={["Tanggal", "Misi", "XP", "Narasi/Refleksi"]}
                     data={timelineDays.map((day) => {
                       const report = selectedStudentReportByDate.get(day);
-                      const selectedIds = asArray(report?.answers?.selectedMissionIds);
+                      const selectedIds = asArray(
+                        report?.answers?.selectedMissionIds,
+                      );
                       const missionNames = selectedIds
                         .map((id) => missionTitleMap.get(id))
                         .filter(Boolean)
@@ -727,23 +845,33 @@ export default async function GuruDashboardPage({
           {selectedStudent ? (
             <div className="mt-3 space-y-3">
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{selectedStudent.name}</p>
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  {selectedStudent.name}
+                </p>
                 <p className="text-xs text-slate-500 dark:text-slate-400">
-                  {selectedStudent.classroom || "Tanpa kelas"} • total {selectedStudent.totalXp} XP • streak {selectedStudent.currentStreak} hari
+                  {selectedStudent.classroom || "Tanpa kelas"} • total{" "}
+                  {selectedStudent.totalXp} XP • streak{" "}
+                  {selectedStudent.currentStreak} hari
                 </p>
               </div>
               <div className="space-y-1">
                 {timelineDays.map((day) => {
                   const report = selectedStudentReportByDate.get(day);
-                  const selectedMissionCount = report ? asArray(report.answers?.selectedMissionIds).length : 0;
+                  const selectedMissionCount = report
+                    ? asArray(report.answers?.selectedMissionIds).length
+                    : 0;
                   return (
                     <div
                       key={day}
                       className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
                     >
-                      <span className="text-slate-600 dark:text-slate-300">{day}</span>
+                      <span className="text-slate-600 dark:text-slate-300">
+                        {day}
+                      </span>
                       <span className="text-slate-700 dark:text-slate-200">
-                        {report ? `${selectedMissionCount} misi • +${report.xpGained} XP` : "Belum isi"}
+                        {report
+                          ? `${selectedMissionCount} misi • +${report.xpGained} XP`
+                          : "Belum isi"}
                       </span>
                     </div>
                   );
@@ -751,47 +879,134 @@ export default async function GuruDashboardPage({
               </div>
               <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
                 <p>
-                  Shalat terlapor: {Object.keys(selectedStudentTodayReport?.answers?.prayerReports || {}).length}
+                  Shalat terlapor:{" "}
+                  {
+                    Object.keys(
+                      selectedStudentTodayReport?.answers?.prayerReports || {},
+                    ).length
+                  }
                 </p>
                 <p>
-                  Tadarus hari ini: {selectedStudentTodayReport?.answers?.tadarusReport?.totalAyatRead || 0} ayat
+                  Tadarus hari ini:{" "}
+                  {selectedStudentTodayReport?.answers?.tadarusReport
+                    ?.totalAyatRead || 0}{" "}
+                  ayat
                 </p>
                 <p>
-                  Kultum: {selectedStudentTodayReport?.answers?.kultumReport?.ringkasan ? "Sudah" : "Belum"}
+                  Kultum:{" "}
+                  {selectedStudentTodayReport?.answers?.kultumReport?.ringkasan
+                    ? "Sudah"
+                    : "Belum"}
                 </p>
                 <p>
-                  Refleksi: {selectedStudentTodayReport?.narration?.trim() ? "Sudah" : "Belum"}
+                  Refleksi:{" "}
+                  {selectedStudentTodayReport?.narration?.trim()
+                    ? "Sudah"
+                    : "Belum"}
                 </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                  Bukti Silaturahim (Hari Ini)
+                </p>
+                {selectedStudentSilaturahimProof?.photoUrl ? (
+                  <div className="mt-2 space-y-2">
+                    <img
+                      src={selectedStudentSilaturahimProof.photoUrl}
+                      alt={`Bukti silaturahim ${selectedStudent.name}`}
+                      className="h-44 w-full rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+                    />
+                    <p>
+                      Tujuan:{" "}
+                      <span className="font-semibold">
+                        {selectedStudentSilaturahimProof.teacherName || "-"}
+                      </span>{" "}
+                      — {selectedStudentSilaturahimProof.location || "-"}
+                    </p>
+                    <p>
+                      Waktu:{" "}
+                      {selectedStudentSilaturahimProof.recordedAt ||
+                        selectedDate}
+                    </p>
+                    <p>
+                      Catatan:{" "}
+                      {selectedStudentSilaturahimProof.lessonSummary || "-"}
+                    </p>
+                    <a
+                      href={selectedStudentSilaturahimProof.photoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                    >
+                      Buka Foto
+                    </a>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-slate-500 dark:text-slate-400">
+                    Belum ada foto bukti silaturahim untuk hari ini.
+                  </p>
+                )}
               </div>
             </div>
           ) : (
-            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">Tidak ada siswa pada filter ini.</p>
+            <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+              Tidak ada siswa pada filter ini.
+            </p>
           )}
         </article>
       </section>
 
       <section className="mt-5 grid gap-4 lg:grid-cols-3">
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Analisis Shalat</h3>
-          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">Berjamaah: <span className="font-semibold">{shalatSummary.berjamaah}</span></p>
-          <p className="text-xs text-slate-600 dark:text-slate-300">Munfarid: <span className="font-semibold">{shalatSummary.munfarid}</span></p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Analisis Tadarus</h3>
-          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">Peserta: <span className="font-semibold">{tadarusSummary.peserta}</span></p>
-          <p className="text-xs text-slate-600 dark:text-slate-300">Total ayat: <span className="font-semibold">{tadarusSummary.ayat}</span></p>
-        </article>
-        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Analisis Kultum</h3>
-          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">Peserta: <span className="font-semibold">{kultumSummary.peserta}</span></p>
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Analisis Shalat
+          </h3>
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            Berjamaah:{" "}
+            <span className="font-semibold">{shalatSummary.berjamaah}</span>
+          </p>
           <p className="text-xs text-slate-600 dark:text-slate-300">
-            Rata-rata panjang ringkasan: <span className="font-semibold">{kultumSummary.peserta ? Math.round(kultumSummary.totalChar / kultumSummary.peserta) : 0} karakter</span>
+            Munfarid:{" "}
+            <span className="font-semibold">{shalatSummary.munfarid}</span>
+          </p>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Analisis Tadarus
+          </h3>
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            Peserta:{" "}
+            <span className="font-semibold">{tadarusSummary.peserta}</span>
+          </p>
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Total ayat:{" "}
+            <span className="font-semibold">{tadarusSummary.ayat}</span>
+          </p>
+        </article>
+        <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Analisis Kultum
+          </h3>
+          <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+            Peserta:{" "}
+            <span className="font-semibold">{kultumSummary.peserta}</span>
+          </p>
+          <p className="text-xs text-slate-600 dark:text-slate-300">
+            Rata-rata panjang ringkasan:{" "}
+            <span className="font-semibold">
+              {kultumSummary.peserta
+                ? Math.round(kultumSummary.totalChar / kultumSummary.peserta)
+                : 0}{" "}
+              karakter
+            </span>
           </p>
         </article>
       </section>
 
       <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Siswa Butuh Pendampingan</h2>
+        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+          Siswa Butuh Pendampingan
+        </h2>
         <div className="mt-3 space-y-2">
           {riskPagination.items.length ? (
             riskPagination.items.map((row) => (
@@ -800,16 +1015,23 @@ export default async function GuruDashboardPage({
                 className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60"
               >
                 <div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">{row.name}</p>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {row.name}
+                  </p>
                   <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {row.classroom || "Tanpa kelas"} • status {row.status} • streak {row.currentStreak}
+                    {row.classroom || "Tanpa kelas"} • status {row.status} •
+                    streak {row.currentStreak}
                   </p>
                 </div>
-                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">Risk {row.riskScore}</p>
+                <p className="text-xs font-semibold text-rose-600 dark:text-rose-400">
+                  Risk {row.riskScore}
+                </p>
               </div>
             ))
           ) : (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Tidak ada siswa berisiko tinggi pada filter ini.</p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Tidak ada siswa berisiko tinggi pada filter ini.
+            </p>
           )}
         </div>
         {riskPagination.totalPages > 1 ? (
@@ -826,14 +1048,18 @@ export default async function GuruDashboardPage({
             >
               Sebelumnya
             </Link>
-            <span className="text-slate-500 dark:text-slate-400">Halaman {riskPagination.page}/{riskPagination.totalPages}</span>
+            <span className="text-slate-500 dark:text-slate-400">
+              Halaman {riskPagination.page}/{riskPagination.totalPages}
+            </span>
             <Link
               href={buildHref({
                 classroom: selectedClassroom || undefined,
                 date: selectedDate,
                 studentId: selectedStudent?.id,
                 studentPage: String(monitoringPagination.page),
-                riskPage: String(Math.min(riskPagination.totalPages, riskPagination.page + 1)),
+                riskPage: String(
+                  Math.min(riskPagination.totalPages, riskPagination.page + 1),
+                ),
               })}
               className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
             >
