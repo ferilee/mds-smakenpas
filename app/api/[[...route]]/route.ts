@@ -557,6 +557,109 @@ app.get(
   },
 );
 
+app.post(
+  "/kultum/videos",
+  zValidator(
+    "json",
+    z.object({
+      title: z.string().trim().min(1).max(200),
+      youtubeUrl: z.string().trim().url(),
+      ustadz: z.string().trim().max(100).optional(),
+    }),
+  ),
+  async (c) => {
+    const me = c.get("user");
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, me.id),
+    });
+    if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+      return c.json({ message: "Forbidden" }, 403);
+    }
+
+    const { title, youtubeUrl, ustadz } = c.req.valid("json");
+
+    // Extract videoId from YouTube URL
+    let videoId = "";
+    try {
+      const url = new URL(youtubeUrl);
+      if (url.hostname === "youtu.be") {
+        videoId = url.pathname.slice(1);
+      } else {
+        videoId = url.searchParams.get("v") || "";
+      }
+    } catch {
+      return c.json({ message: "URL YouTube tidak valid." }, 400);
+    }
+
+    if (!videoId) {
+      return c.json({ message: "Gagal mengambil ID video dari URL." }, 400);
+    }
+
+    const [video] = await db
+      .insert(teacherVideos)
+      .values({
+        title,
+        youtubeUrl,
+        videoId,
+        ustadz: ustadz || null,
+        active: true,
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    return c.json({ message: "Video added", video });
+  },
+);
+
+app.put(
+  "/kultum/videos/:id",
+  zValidator(
+    "json",
+    z.object({
+      active: z.boolean().optional(),
+      title: z.string().trim().max(200).optional(),
+      ustadz: z.string().trim().max(100).optional(),
+    }),
+  ),
+  async (c) => {
+    const me = c.get("user");
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, me.id),
+    });
+    if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+      return c.json({ message: "Forbidden" }, 403);
+    }
+
+    const id = Number(c.req.param("id"));
+    const payload = c.req.valid("json");
+
+    await db
+      .update(teacherVideos)
+      .set({
+        ...payload,
+        updatedAt: new Date(),
+      })
+      .where(eq(teacherVideos.id, id));
+
+    return c.json({ message: "Video updated" });
+  },
+);
+
+app.delete("/kultum/videos/:id", async (c) => {
+  const me = c.get("user");
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, me.id),
+  });
+  if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+    return c.json({ message: "Forbidden" }, 403);
+  }
+
+  const id = Number(c.req.param("id"));
+  await db.delete(teacherVideos).where(eq(teacherVideos.id, id));
+
+  return c.json({ message: "Video deleted" });
+});
+
 export const runtime = "nodejs";
 const handler = handle(app);
 export { handler as GET, handler as POST, handler as PUT, handler as PATCH };

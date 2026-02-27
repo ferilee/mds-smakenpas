@@ -10,6 +10,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { todayDateString } from "@/lib/xp";
 import { StudentFilter } from "./student-filter";
+import { VideoManagement } from "@/components/video-management";
 
 type GuruDashboardPageProps = {
   searchParams?: Promise<{
@@ -121,7 +122,7 @@ export default async function GuruDashboardPage({
   const today = todayDateString();
   const selectedDate =
     resolvedSearchParams?.date &&
-    /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
+      /^\d{4}-\d{2}-\d{2}$/.test(resolvedSearchParams.date)
       ? resolvedSearchParams.date
       : today;
   const previousDate = shiftDate(selectedDate, -1);
@@ -221,9 +222,9 @@ export default async function GuruDashboardPage({
     : 0;
   const avgXpPerSubmit = submittedStudents
     ? Math.round(
-        reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
-          submittedStudents,
-      )
+      reportsToday.reduce((sum, row) => sum + (row.xpGained || 0), 0) /
+      submittedStudents,
+    )
     : 0;
 
   const missionCompletionTarget = Math.max(
@@ -270,13 +271,13 @@ export default async function GuruDashboardPage({
   );
   const selectedStudentSilaturahimProof = selectedStudentSilaturahimProofRaw
     ? {
-        ...selectedStudentSilaturahimProofRaw,
-        photoUrl: selectedStudentSilaturahimProofRaw.objectKey
-          ? `/api/uploads/silaturahim/proof?key=${encodeURIComponent(
-              selectedStudentSilaturahimProofRaw.objectKey,
-            )}`
-          : selectedStudentSilaturahimProofRaw.photoUrl,
-      }
+      ...selectedStudentSilaturahimProofRaw,
+      photoUrl: selectedStudentSilaturahimProofRaw.objectKey
+        ? `/api/uploads/silaturahim/proof?key=${encodeURIComponent(
+          selectedStudentSilaturahimProofRaw.objectKey,
+        )}`
+        : selectedStudentSilaturahimProofRaw.photoUrl,
+    }
     : null;
 
   const shalatSummary = reportsToday.reduce(
@@ -293,7 +294,8 @@ export default async function GuruDashboardPage({
 
   const tadarusSummary = reportsToday.reduce(
     (acc, row) => {
-      const totalAyat = Number(row.answers?.tadarusReport?.totalAyatRead || 0);
+      const answers = row.answers;
+      const totalAyat = Number(answers?.tadarusReport?.totalAyatRead || 0);
       if (totalAyat > 0) {
         acc.peserta += 1;
         acc.ayat += totalAyat;
@@ -405,22 +407,22 @@ export default async function GuruDashboardPage({
 
   const selectedStudentCsv = selectedStudent
     ? [
-        ["Tanggal", "Misi Selesai", "XP Didapat", "Narasi/Refleksi"],
-        ...timelineDays.map((day) => {
-          const report = selectedStudentReportByDate.get(day);
-          const missionCount = report
-            ? asArray(report.answers?.selectedMissionIds).length
-            : 0;
-          return [
-            day,
-            String(missionCount),
-            String(report?.xpGained || 0),
-            report?.narration || "-",
-          ];
-        }),
-      ]
-        .map((line) => line.map(csvEscape).join(","))
-        .join("\n")
+      ["Tanggal", "Misi Selesai", "XP Didapat", "Narasi/Refleksi"],
+      ...timelineDays.map((day) => {
+        const report = selectedStudentReportByDate.get(day);
+        const missionCount = report
+          ? asArray(report.answers?.selectedMissionIds).length
+          : 0;
+        return [
+          day,
+          String(missionCount),
+          String(report?.xpGained || 0),
+          report?.narration || "-",
+        ];
+      }),
+    ]
+      .map((line) => line.map(csvEscape).join(","))
+      .join("\n")
     : "";
   const selectedStudentCsvHref = selectedStudent
     ? `data:text/csv;charset=utf-8,${encodeURIComponent(selectedStudentCsv)}`
@@ -460,6 +462,8 @@ export default async function GuruDashboardPage({
           <SignOutButton />
         </div>
       </header>
+
+      <VideoManagement />
 
       <section className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
         <form className="grid gap-3 sm:grid-cols-4">
@@ -601,13 +605,12 @@ export default async function GuruDashboardPage({
                   </td>
                   <td className="py-2">
                     <span
-                      className={`text-xs font-semibold ${
-                        row.trend > 0
-                          ? "text-emerald-600 dark:text-emerald-400"
-                          : row.trend < 0
-                            ? "text-rose-600 dark:text-rose-400"
-                            : "text-slate-500 dark:text-slate-400"
-                      }`}
+                      className={`text-xs font-semibold ${row.trend > 0
+                        ? "text-emerald-600 dark:text-emerald-400"
+                        : row.trend < 0
+                          ? "text-rose-600 dark:text-rose-400"
+                          : "text-slate-500 dark:text-slate-400"
+                        }`}
                     >
                       {row.trend > 0 ? `+${row.trend}` : row.trend}
                     </span>
@@ -660,9 +663,8 @@ export default async function GuruDashboardPage({
               <tbody>
                 {monitoringPagination.items.map((row) => {
                   const report = reportsByUserToday.get(row.id);
-                  const missionsToday = asArray(
-                    report?.answers?.selectedMissionIds,
-                  )
+                  const answers = report?.answers;
+                  const missionsToday = asArray(answers?.selectedMissionIds)
                     .map((id) => missionTitleMap.get(id))
                     .filter(Boolean)
                     .join(", ");
@@ -695,11 +697,10 @@ export default async function GuruDashboardPage({
                               studentPage: String(monitoringPagination.page),
                               riskPage: String(riskPagination.page),
                             })}
-                            className={`p-1.5 rounded-lg transition ${
-                              selectedStudent?.id === row.id
-                                ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
-                                : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                            }`}
+                            className={`p-1.5 rounded-lg transition ${selectedStudent?.id === row.id
+                              ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+                              : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                              }`}
                             title="Preview"
                           >
                             <svg
