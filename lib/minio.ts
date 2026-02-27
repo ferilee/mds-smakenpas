@@ -29,11 +29,7 @@ function getMinioConfig(): MinioConfig {
 
   const endpointUrl = parseEndpoint(endpointRaw);
   const useSSL = endpointUrl.protocol === "https:";
-  const port = endpointUrl.port
-    ? Number(endpointUrl.port)
-    : useSSL
-      ? 443
-      : 80;
+  const port = endpointUrl.port ? Number(endpointUrl.port) : useSSL ? 443 : 80;
 
   const client = new Client({
     endPoint: endpointUrl.hostname,
@@ -80,13 +76,27 @@ export async function uploadSilaturahimProof(input: {
   const ext = getFileExtension(input.mimeType);
   const objectKey = `silaturahim/${input.userId}/${Date.now()}-${randomUUID()}.${ext}`;
 
-  await cfg.client.putObject(cfg.bucket, objectKey, input.data, input.data.length, {
-    "Content-Type": input.mimeType,
-    "Cache-Control": "public, max-age=31536000, immutable",
-  });
+  await cfg.client.putObject(
+    cfg.bucket,
+    objectKey,
+    input.data,
+    input.data.length,
+    {
+      "Content-Type": input.mimeType,
+      "Cache-Control": "public, max-age=31536000, immutable",
+    },
+  );
 
   return {
     objectKey,
     url: buildObjectUrl(objectKey, cfg),
   };
+}
+
+export async function getSilaturahimProofReadUrl(
+  objectKey: string,
+  expirySeconds = 60 * 60,
+) {
+  const cfg = getMinioConfig();
+  return cfg.client.presignedGetObject(cfg.bucket, objectKey, expirySeconds);
 }
