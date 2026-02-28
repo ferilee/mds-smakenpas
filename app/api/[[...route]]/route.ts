@@ -25,6 +25,18 @@ type SessionUser = {
   name: string;
 };
 
+function getErrorMessage(error: unknown) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message?: unknown }).message === "string"
+  ) {
+    return (error as { message: string }).message;
+  }
+  return "Terjadi kesalahan pada server.";
+}
+
 function isIdulfitriWindow(reportDate: string) {
   const allowedDates = (process.env.IDULFITRI_DATES || "")
     .split(",")
@@ -68,6 +80,19 @@ app.use("*", async (c, next) => {
     name: session.user.name,
   });
   await next();
+});
+
+app.onError((err, c) => {
+  console.error("[api] unhandled error:", err);
+  return c.json(
+    {
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Terjadi kesalahan pada server."
+          : getErrorMessage(err),
+    },
+    500,
+  );
 });
 
 app.get("/me", async (c) => {
@@ -347,15 +372,15 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
 
   let normalizedKultumReport:
     | {
-      teacherVideoId: number;
-      videoId: string;
-      youtubeUrl: string;
-      title: string;
-      ustadz?: string;
-      ringkasan: string;
-      poinPelajaran: string[];
-      submittedAt: string;
-    }
+        teacherVideoId: number;
+        videoId: string;
+        youtubeUrl: string;
+        title: string;
+        ustadz?: string;
+        ringkasan: string;
+        poinPelajaran: string[];
+        submittedAt: string;
+      }
     | undefined;
   if (payload.kultumReport) {
     const selectedVideo = await db.query.teacherVideos.findFirst({
@@ -530,30 +555,30 @@ app.get(
     const ranking =
       scope === "classroom" && currentUser.classroom
         ? await db
-          .select({
-            id: users.id,
-            name: users.name,
-            image: users.image,
-            classroom: users.classroom,
-            totalXp: users.totalXp,
-            currentStreak: users.currentStreak,
-          })
-          .from(users)
-          .where(eq(users.classroom, currentUser.classroom))
-          .orderBy(desc(users.totalXp))
-          .limit(50)
+            .select({
+              id: users.id,
+              name: users.name,
+              image: users.image,
+              classroom: users.classroom,
+              totalXp: users.totalXp,
+              currentStreak: users.currentStreak,
+            })
+            .from(users)
+            .where(eq(users.classroom, currentUser.classroom))
+            .orderBy(desc(users.totalXp))
+            .limit(50)
         : await db
-          .select({
-            id: users.id,
-            name: users.name,
-            image: users.image,
-            classroom: users.classroom,
-            totalXp: users.totalXp,
-            currentStreak: users.currentStreak,
-          })
-          .from(users)
-          .orderBy(desc(users.totalXp))
-          .limit(50);
+            .select({
+              id: users.id,
+              name: users.name,
+              image: users.image,
+              classroom: users.classroom,
+              totalXp: users.totalXp,
+              currentStreak: users.currentStreak,
+            })
+            .from(users)
+            .orderBy(desc(users.totalXp))
+            .limit(50);
 
     return c.json({
       scope,
@@ -573,46 +598,74 @@ app.post(
     }),
   ),
   async (c) => {
-    const me = c.get("user");
-    const dbUser = await db.query.users.findFirst({
-      where: eq(users.id, me.id),
-    });
-    if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
-      return c.json({ message: "Forbidden" }, 403);
-    }
-
-    const { title, youtubeUrl, ustadz } = c.req.valid("json");
-
-    // Extract videoId from YouTube URL
-    let videoId = "";
     try {
-      const url = new URL(youtubeUrl);
-      if (url.hostname === "youtu.be") {
-        videoId = url.pathname.slice(1);
-      } else {
-        videoId = url.searchParams.get("v") || "";
+      const me = c.get("user");
+      const dbUser = await db.query.users.findFirst({
+        where: eq(users.id, me.id),
+      });
+      if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+        return c.json({ message: "Forbidden" }, 403);
       }
-    } catch {
-      return c.json({ message: "URL YouTube tidak valid." }, 400);
+
+      const { title, youtubeUrl, ustadz } = c.req.valid("json");
+
+      // Extract videoId from YouTube URL
+      let videoId = "";
+      try {
+        const url = new URL(youtubeUrl);
+        if (url.hostname === "youtu.be") {
+          videoId = url.pathname.slice(1);
+        } else {
+          videoId = url.searchParams.get("v") || "";
+        }
+      } catch {
+        return c.json({ message: "URL YouTube tidak valid." }, 400);
+      }
+
+      if (!videoId) {
+        return c.json({ message: "Gagal mengambil ID video dari URL." }, 400);
+      }
+
+      const [video] = await db
+        .insert(teacherVideos)
+        .values({
+          title,
+          youtubeUrl,
+          videoId,
+          ustadz: ustadz || null,
+          active: true,
+          publishedAt: new Date(),
+        })
+        .returning();
+
+      return c.json({ message: "Video added", video });
+    } catch (error) {
+      const message = getErrorMessage(error).toLowerCase();
+      if (message.includes("duplicate key")) {
+        return c.json({ message: "Video ini sudah pernah ditambahkan." }, 409);
+      }
+      if (
+        message.includes("teacher_videos") &&
+        message.includes("does not exist")
+      ) {
+        return c.json(
+          {
+            message:
+              "Tabel video belum tersedia di database. Jalankan migrasi DB di server.",
+          },
+          500,
+        );
+      }
+      return c.json(
+        {
+          message:
+            process.env.NODE_ENV === "production"
+              ? "Gagal menambahkan video. Coba lagi."
+              : getErrorMessage(error),
+        },
+        500,
+      );
     }
-
-    if (!videoId) {
-      return c.json({ message: "Gagal mengambil ID video dari URL." }, 400);
-    }
-
-    const [video] = await db
-      .insert(teacherVideos)
-      .values({
-        title,
-        youtubeUrl,
-        videoId,
-        ustadz: ustadz || null,
-        active: true,
-        publishedAt: new Date(),
-      })
-      .returning();
-
-    return c.json({ message: "Video added", video });
   },
 );
 
@@ -627,6 +680,43 @@ app.put(
     }),
   ),
   async (c) => {
+    try {
+      const me = c.get("user");
+      const dbUser = await db.query.users.findFirst({
+        where: eq(users.id, me.id),
+      });
+      if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+
+      const id = Number(c.req.param("id"));
+      const payload = c.req.valid("json");
+
+      await db
+        .update(teacherVideos)
+        .set({
+          ...payload,
+          updatedAt: new Date(),
+        })
+        .where(eq(teacherVideos.id, id));
+
+      return c.json({ message: "Video updated" });
+    } catch (error) {
+      return c.json(
+        {
+          message:
+            process.env.NODE_ENV === "production"
+              ? "Gagal memperbarui video."
+              : getErrorMessage(error),
+        },
+        500,
+      );
+    }
+  },
+);
+
+app.delete("/kultum/videos/:id", async (c) => {
+  try {
     const me = c.get("user");
     const dbUser = await db.query.users.findFirst({
       where: eq(users.id, me.id),
@@ -636,35 +726,28 @@ app.put(
     }
 
     const id = Number(c.req.param("id"));
-    const payload = c.req.valid("json");
+    await db.delete(teacherVideos).where(eq(teacherVideos.id, id));
 
-    await db
-      .update(teacherVideos)
-      .set({
-        ...payload,
-        updatedAt: new Date(),
-      })
-      .where(eq(teacherVideos.id, id));
-
-    return c.json({ message: "Video updated" });
-  },
-);
-
-app.delete("/kultum/videos/:id", async (c) => {
-  const me = c.get("user");
-  const dbUser = await db.query.users.findFirst({
-    where: eq(users.id, me.id),
-  });
-  if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
-    return c.json({ message: "Forbidden" }, 403);
+    return c.json({ message: "Video deleted" });
+  } catch (error) {
+    return c.json(
+      {
+        message:
+          process.env.NODE_ENV === "production"
+            ? "Gagal menghapus video."
+            : getErrorMessage(error),
+      },
+      500,
+    );
   }
-
-  const id = Number(c.req.param("id"));
-  await db.delete(teacherVideos).where(eq(teacherVideos.id, id));
-
-  return c.json({ message: "Video deleted" });
 });
 
 export const runtime = "nodejs";
 const handler = handle(app);
-export { handler as GET, handler as POST, handler as PUT, handler as PATCH };
+export {
+  handler as GET,
+  handler as POST,
+  handler as PUT,
+  handler as PATCH,
+  handler as DELETE,
+};
