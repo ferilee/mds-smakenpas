@@ -6,6 +6,7 @@ import { FastingConfirmationIndicator } from "@/components/fasting-confirmation-
 import { ProfileInfoModal } from "@/components/profile-info-modal";
 import { AccountLockModal } from "@/components/account-lock-modal";
 import { ProgressCards } from "@/components/progress-cards";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserAvatar } from "@/components/user-avatar";
@@ -171,6 +172,7 @@ export default async function DashboardPage({
             </svg>
           </Link>
           <SignOutButton />
+          <PwaInstallButton />
         </div>
       </header>
 

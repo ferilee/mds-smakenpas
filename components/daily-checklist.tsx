@@ -203,6 +203,11 @@ const missionDetails: Record<string, MissionDetail> = {
     description:
       '"Sebaik-baik kalian adalah yang belajar Al-Quran dan mengajarkannya." (HR. Bukhari)',
   },
+  MATERI_FIKIH_RAMADAN: {
+    title: "Materi Fikih Ramadan",
+    description:
+      "Ringkasan materi fikih untuk memperkuat pemahaman ibadah Ramadan.",
+  },
   CATATAN_PUASA_DAN_JAMAAH: {
     title: "Shalat Lima Waktu",
     description:
@@ -1226,6 +1231,18 @@ export function DailyChecklist({
       !activeMissions.some((m) => m.id === tadarusFromCore.id)
     ) {
       activeMissions = [tadarusFromCore, ...activeMissions];
+    }
+
+    const fikihPlaceholder: Mission = {
+      id: -999,
+      code: "MATERI_FIKIH_RAMADAN",
+      title: "Materi Fikih Ramadan",
+      category: "LITERASI_DAKWAH",
+      xp: 0,
+      requiresNarration: false,
+    };
+    if (!activeMissions.some((m) => m.code === fikihPlaceholder.code)) {
+      activeMissions = [...activeMissions, fikihPlaceholder];
     }
   }
   if (activeCategory === "SUNNAH") {
