@@ -5,6 +5,7 @@ import { DailyChecklist } from "@/components/daily-checklist";
 import { FastingConfirmationIndicator } from "@/components/fasting-confirmation-indicator";
 import { ProfileInfoModal } from "@/components/profile-info-modal";
 import { AccountLockModal } from "@/components/account-lock-modal";
+import { DeveloperInfoButton } from "@/components/developer-info-button";
 import { PabpProfilesButton } from "@/components/pabp-profiles-button";
 import { ProgressCards } from "@/components/progress-cards";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -174,6 +175,7 @@ export default async function DashboardPage({
           </Link>
           <PwaInstallButton />
           <PabpProfilesButton />
+          <DeveloperInfoButton />
           <SignOutButton />
         </div>
       </header>

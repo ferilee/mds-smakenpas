@@ -60,6 +60,12 @@ type ZakatFitrahForm = {
   form: "Beras" | "Uang";
   amount: string;
 };
+type InfaqShadaqahForm = {
+  amount: string;
+};
+type TakziahZiarahForm = {
+  purpose: string;
+};
 type IdulfitriForm = {
   place: string;
   khatib: string;
@@ -147,6 +153,8 @@ const FIKIH_SUMMARY_STORAGE_KEY = "fikih_ramadan_summaries_v1";
 const JUZ30_TOTAL_SURAH = 37;
 const MURAJAAH_TARGET_SURAH = 30;
 const DEFAULT_CITY_KEYWORD = "lumajang";
+const FIKIH_XP_PER_SUMMARY = 15;
+const FASTING_MODAL_DELAY_MS = 60_000;
 
 const missionDetails: Record<string, MissionDetail> = {
   HAFALAN_SURAT_PENDEK: {
@@ -327,6 +335,14 @@ const quranSurahNames = [
   "Al-Falaq",
   "An-Nas",
 ] as const;
+const quranSurahAyatCounts = [
+  7, 286, 200, 176, 120, 165, 206, 75, 129, 109, 123, 111, 43, 52, 99, 128, 111,
+  110, 98, 135, 112, 78, 118, 64, 77, 227, 93, 88, 69, 60, 34, 30, 73, 54, 45,
+  83, 182, 88, 75, 85, 54, 53, 89, 59, 37, 35, 38, 29, 18, 45, 60, 49, 62, 55,
+  78, 96, 29, 22, 24, 13, 14, 11, 11, 18, 12, 12, 30, 52, 52, 44, 28, 28, 20,
+  56, 40, 31, 50, 40, 46, 42, 29, 19, 36, 25, 22, 17, 19, 26, 30, 20, 15, 21,
+  11, 8, 8, 19, 5, 8, 8, 11, 11, 8, 3, 9, 5, 4, 7, 3, 6, 3, 5, 4, 5, 6,
+] as const;
 const SUNNAH_OTHER_SECTION_LABEL = "Sunnah Lainnya";
 const sunnahOtherIdeaOptions = [
   "Puasa sunnah",
@@ -427,6 +443,16 @@ function autoCompleteSurahName(rawInput: string) {
     normalizeLookupText(name).includes(q),
   );
   return contains || "";
+}
+
+function getSurahAyatLimit(surahNameRaw: string) {
+  const normalized = normalizeLookupText(surahNameRaw);
+  if (!normalized) return null;
+  const idx = quranSurahNames.findIndex(
+    (name) => normalizeLookupText(name) === normalized,
+  );
+  if (idx < 0) return null;
+  return quranSurahAyatCounts[idx] ?? null;
 }
 
 function parseTimeForDate(base: Date, hhmm: string) {
@@ -791,6 +817,16 @@ export function DailyChecklist({
     form: "Beras",
     amount: "",
   });
+  const [infaqShadaqahForm, setInfaqShadaqahForm] = useState<InfaqShadaqahForm>(
+    { amount: "" },
+  );
+  const [takziahZiarahForm, setTakziahZiarahForm] = useState<TakziahZiarahForm>(
+    { purpose: "" },
+  );
+  const [infaqSubmitting, setInfaqSubmitting] = useState(false);
+  const [infaqStatus, setInfaqStatus] = useState("");
+  const [takziahSubmitting, setTakziahSubmitting] = useState(false);
+  const [takziahStatus, setTakziahStatus] = useState("");
   const [zakatSubmitting, setZakatSubmitting] = useState(false);
   const [zakatStatus, setZakatStatus] = useState("");
   const [showZakatReward, setShowZakatReward] = useState(false);
@@ -812,6 +848,8 @@ export function DailyChecklist({
   >({});
   const [now, setNow] = useState<Date>(new Date());
   const [mounted, setMounted] = useState(false);
+  const [shouldShowDelayedFastingPrompt, setShouldShowDelayedFastingPrompt] =
+    useState(false);
   const selectedSunnahIdeas = useMemo(
     () =>
       new Set(
@@ -874,6 +912,10 @@ export function DailyChecklist({
     () => calculateTadarusXpPreview(tadarusReportForm.totalAyatRead),
     [tadarusReportForm.totalAyatRead],
   );
+  const tadarusAyatLimit = useMemo(
+    () => getSurahAyatLimit(tadarusReportForm.surahName),
+    [tadarusReportForm.surahName],
+  );
   const currentFikihTopic = fikihRamadanTopics[fikihTopicIndex];
   const currentFikihSummary = currentFikihTopic
     ? (fikihSummaries[currentFikihTopic.key] ?? "")
@@ -890,6 +932,7 @@ export function DailyChecklist({
     if (!Number.isInteger(id) || id <= 0) return null;
     return teacherVideos.find((v) => v.id === id) || null;
   }, [kultumForm.teacherVideoId, teacherVideos]);
+  const fikihSummaryXp = fikihCompletedCount * FIKIH_XP_PER_SUMMARY;
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -936,6 +979,52 @@ export function DailyChecklist({
       JSON.stringify(fikihSummaries),
     );
   }, [fikihSummaries]);
+
+  useEffect(() => {
+    if (!shouldShowDelayedFastingPrompt || !reportDateKey) return;
+    const timer = window.setTimeout(() => {
+      const promptSeen =
+        window.localStorage.getItem(
+          `${FASTING_PROMPT_SEEN_KEY_PREFIX}:${reportDateKey}`,
+        ) === "1";
+      if (!promptSeen) {
+        setShowFastingModal(true);
+      }
+    }, FASTING_MODAL_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [reportDateKey, shouldShowDelayedFastingPrompt]);
+
+  useEffect(() => {
+    if (!tadarusAyatLimit) return;
+    setTadarusReportForm((prev) => {
+      const ayatFrom = Number(prev.ayatFrom);
+      const ayatTo = Number(prev.ayatTo);
+      let nextAyatFrom = prev.ayatFrom;
+      let nextAyatTo = prev.ayatTo;
+      let changed = false;
+
+      if (Number.isInteger(ayatFrom) && ayatFrom > tadarusAyatLimit) {
+        nextAyatFrom = String(tadarusAyatLimit);
+        changed = true;
+      }
+      if (Number.isInteger(ayatTo) && ayatTo > tadarusAyatLimit) {
+        nextAyatTo = String(tadarusAyatLimit);
+        changed = true;
+      }
+      if (!changed) return prev;
+
+      const next = {
+        ...prev,
+        ayatFrom: nextAyatFrom,
+        ayatTo: nextAyatTo,
+      };
+      if (!tadarusTotalManual) {
+        const computed = countAyatRange(next.ayatFrom, next.ayatTo);
+        next.totalAyatRead = computed === null ? "" : String(computed);
+      }
+      return next;
+    });
+  }, [tadarusAyatLimit, tadarusTotalManual]);
 
   useEffect(() => {
     if (!activePilarMission) {
@@ -990,7 +1079,7 @@ export function DailyChecklist({
         );
         const hasDailyReport = Boolean(tData.report?.answers);
         if (!hasSeenPrompt && !hasDailyReport) {
-          setShowFastingModal(true);
+          setShouldShowDelayedFastingPrompt(true);
         } else if (!hasDailyReport && storedFastingValue) {
           setFasting(storedFastingValue === "fasting");
         }
@@ -1087,6 +1176,16 @@ export function DailyChecklist({
                   ? "Uang"
                   : "Beras",
               amount: tData.report.answers.zakatFitrah.amount || "",
+            });
+          }
+          if (tData.report.answers.infaqShadaqahReport) {
+            setInfaqShadaqahForm({
+              amount: tData.report.answers.infaqShadaqahReport.amount || "",
+            });
+          }
+          if (tData.report.answers.takziahZiarahReport) {
+            setTakziahZiarahForm({
+              purpose: tData.report.answers.takziahZiarahReport.purpose || "",
             });
           }
           if (tData.report.answers.kultumReport) {
@@ -1477,6 +1576,7 @@ export function DailyChecklist({
       window.dispatchEvent(new Event(FASTING_CONFIRMATION_UPDATED_EVENT));
     }
     setShowFastingModal(false);
+    setShouldShowDelayedFastingPrompt(false);
   };
 
   const submit = async () => {
@@ -1489,6 +1589,12 @@ export function DailyChecklist({
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
       const normalizedSilaturahim = silaturahimForm.teacherName.trim()
         ? silaturahimForm
+        : undefined;
+      const normalizedInfaqShadaqah = infaqShadaqahForm.amount.trim()
+        ? infaqShadaqahForm
+        : undefined;
+      const normalizedTakziahZiarah = takziahZiarahForm.purpose.trim()
+        ? takziahZiarahForm
         : undefined;
 
       const narrationPayload = mergeNarrationWithSunnah(
@@ -1506,11 +1612,14 @@ export function DailyChecklist({
           checklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
           idulfitriReport: normalizedIdulfitri,
           zakatFitrah: normalizedZakat,
           silaturahimReport: normalizedSilaturahim,
+          infaqShadaqahReport: normalizedInfaqShadaqah,
+          takziahZiarahReport: normalizedTakziahZiarah,
         }),
       });
       const data = await res.json();
@@ -1603,6 +1712,124 @@ export function DailyChecklist({
       setZakatStatus("Terjadi kesalahan sistem. Silakan coba lagi.");
     } finally {
       setZakatSubmitting(false);
+    }
+  };
+
+  const submitInfaqShadaqahReport = async () => {
+    if (!activePilarMission || activePilarMission.code !== "INFAQ_SHADAQAH") {
+      return;
+    }
+    if (!infaqShadaqahForm.amount.trim()) {
+      setInfaqStatus("Jumlah infaq/shadaqah wajib diisi.");
+      return;
+    }
+    setInfaqSubmitting(true);
+    setInfaqStatus("");
+    try {
+      const submittedAt = new Date().toISOString();
+      const selectedMissionIds = selected.includes(activePilarMission.id)
+        ? selected
+        : [...selected, activePilarMission.id];
+      const nextChecklistTimestamps = {
+        ...checklistTimestamps,
+        [activePilarMission.id]: submittedAt,
+      };
+
+      const narrationPayload = mergeNarrationWithSunnah(
+        narration,
+        sunnahOtherNote,
+      );
+      const res = await fetch("/api/reports/today", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedMissionIds,
+          fasting,
+          narration: narrationPayload,
+          prayerReports,
+          checklistTimestamps: nextChecklistTimestamps,
+          prayerReportTimestamps,
+          murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
+          tadarusReport: normalizedTadarusReport,
+          kultumReport: normalizedKultumReport,
+          infaqShadaqahReport: infaqShadaqahForm,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setInfaqStatus(
+          data.message || "Gagal mengirim laporan infaq/shadaqah.",
+        );
+        return;
+      }
+      setSelected(selectedMissionIds);
+      setChecklistTimestamps(nextChecklistTimestamps);
+      setInfaqStatus("Laporan infaq/shadaqah berhasil dikirim.");
+    } catch (err) {
+      console.error(err);
+      setInfaqStatus("Terjadi kesalahan sistem. Silakan coba lagi.");
+    } finally {
+      setInfaqSubmitting(false);
+    }
+  };
+
+  const submitTakziahZiarahReport = async () => {
+    if (!activePilarMission || activePilarMission.code !== "TAKZIAH_ZIARAH") {
+      return;
+    }
+    if (!takziahZiarahForm.purpose.trim()) {
+      setTakziahStatus("Tujuan takziah/ziarah wajib diisi.");
+      return;
+    }
+    setTakziahSubmitting(true);
+    setTakziahStatus("");
+    try {
+      const submittedAt = new Date().toISOString();
+      const selectedMissionIds = selected.includes(activePilarMission.id)
+        ? selected
+        : [...selected, activePilarMission.id];
+      const nextChecklistTimestamps = {
+        ...checklistTimestamps,
+        [activePilarMission.id]: submittedAt,
+      };
+
+      const narrationPayload = mergeNarrationWithSunnah(
+        narration,
+        sunnahOtherNote,
+      );
+      const res = await fetch("/api/reports/today", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          selectedMissionIds,
+          fasting,
+          narration: narrationPayload,
+          prayerReports,
+          checklistTimestamps: nextChecklistTimestamps,
+          prayerReportTimestamps,
+          murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
+          tadarusReport: normalizedTadarusReport,
+          kultumReport: normalizedKultumReport,
+          takziahZiarahReport: takziahZiarahForm,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTakziahStatus(
+          data.message || "Gagal mengirim laporan takziah/ziarah.",
+        );
+        return;
+      }
+      setSelected(selectedMissionIds);
+      setChecklistTimestamps(nextChecklistTimestamps);
+      setTakziahStatus("Laporan takziah/ziarah berhasil dikirim.");
+    } catch (err) {
+      console.error(err);
+      setTakziahStatus("Terjadi kesalahan sistem. Silakan coba lagi.");
+    } finally {
+      setTakziahSubmitting(false);
     }
   };
 
