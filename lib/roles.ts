@@ -1,3 +1,5 @@
+import { isPabpEmail } from "./pabp";
+
 export type AppRole = "siswa" | "guru" | "admin";
 
 function normalizeEmail(value: string) {
@@ -30,6 +32,7 @@ export function getRoleFromEmail(email: string | null | undefined): AppRole {
   if (!email) return "siswa";
   const normalized = normalizeEmail(email);
   if (adminEmails.has(normalized)) return "admin";
+  if (isPabpEmail(normalized)) return "guru";
   if (isGuruDomainEmail(normalized)) return "guru";
   return "siswa";
 }

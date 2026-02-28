@@ -458,7 +458,7 @@ export default async function GuruMonitoringPage({
       },
       {
         title: "Manajemen",
-        items: [{ label: "Kultum", href: "/guru/kultum" }],
+        items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
       },
       {
         title: "Akses",

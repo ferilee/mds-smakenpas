@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Script from "next/script";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { defaultFikihMaterials, type FikihTopic } from "@/lib/fikih-materials";
 
 type Mission = {
   id: number;
@@ -99,57 +100,6 @@ type KultumForm = {
   poinPelajaranText: string;
 };
 
-const fikihRamadanTopics = [
-  {
-    title: "Taharah",
-    points: [
-      "Makna bersuci sebagai syarat utama ibadah.",
-      "Najis, hadas kecil, hadas besar, dan cara mensucikannya.",
-      "Pembiasaan kebersihan pribadi selama Ramadan.",
-    ],
-  },
-  {
-    title: "Wudlu",
-    points: [
-      "Rukun, sunnah, dan hal-hal yang membatalkan wudlu.",
-      "Praktik wudlu yang tertib dan hemat air.",
-      "Koreksi kesalahan wudlu yang sering terjadi.",
-    ],
-  },
-  {
-    title: "Mandi Wajib",
-    points: [
-      "Sebab-sebab mandi wajib dan niatnya.",
-      "Tata cara mandi wajib sesuai tuntunan.",
-      "Keterkaitan mandi wajib dengan sahnya ibadah.",
-    ],
-  },
-  {
-    title: "Shalat",
-    points: [
-      "Penguatan rukun, wajib, dan sunnah shalat.",
-      "Shalat berjamaah: adab makmum dan imam.",
-      "Muhasabah kualitas shalat harian peserta didik.",
-    ],
-  },
-  {
-    title: "Puasa",
-    points: [
-      "Rukun puasa, hal yang membatalkan, dan adab puasa.",
-      "Amalan pendukung: sahur, berbuka, dan doa.",
-      "Strategi menjaga semangat puasa di lingkungan sekolah.",
-    ],
-  },
-  {
-    title: "Shalat Tarawih",
-    points: [
-      "Keutamaan qiyam Ramadan (tarawih).",
-      "Adab tarawih berjamaah di masjid/mushala.",
-      "Konsistensi tarawih hingga akhir Ramadan.",
-    ],
-  },
-] as const;
-
 const navItems = [
   {
     key: "PILAR_UTAMA",
@@ -193,6 +143,7 @@ const FASTING_PROMPT_VALUE_KEY_PREFIX = "fasting_prompt_value";
 const FASTING_CONFIRMATION_KEY = "fasting_confirmation_latest";
 const FASTING_CONFIRMATION_UPDATED_EVENT = "fasting-confirmation-updated";
 const MURAJAAH_STORAGE_KEY = "murajaah_juz30_hafal";
+const FIKIH_SUMMARY_STORAGE_KEY = "fikih_ramadan_summaries_v1";
 const JUZ30_TOTAL_SURAH = 37;
 const MURAJAAH_TARGET_SURAH = 30;
 const DEFAULT_CITY_KEYWORD = "lumajang";
@@ -206,7 +157,7 @@ const missionDetails: Record<string, MissionDetail> = {
   MATERI_FIKIH_RAMADAN: {
     title: "Materi Fikih Ramadan",
     description:
-      "Ringkasan materi fikih untuk memperkuat pemahaman ibadah Ramadan.",
+      "Pelajari materi fikih Ramadan per topik dan isi ringkasan untuk setiap materi.",
   },
   CATATAN_PUASA_DAN_JAMAAH: {
     title: "Shalat Lima Waktu",
@@ -754,6 +705,9 @@ export function DailyChecklist({
   const [hideCompletedItems, setHideCompletedItems] = useState(false);
   const [activeCategory, setActiveCategory] =
     useState<CategoryKey>("PILAR_UTAMA");
+  const [fikihRamadanTopics, setFikihRamadanTopics] = useState<FikihTopic[]>(
+    defaultFikihMaterials,
+  );
   const [teacherVideos, setTeacherVideos] = useState<TeacherVideoOption[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [selectedCityId, setSelectedCityId] = useState("");
@@ -844,6 +798,11 @@ export function DailyChecklist({
   const [reportDateKey, setReportDateKey] = useState("");
   const [showFastingModal, setShowFastingModal] = useState(false);
   const [showFikihModal, setShowFikihModal] = useState(false);
+  const [fikihTopicIndex, setFikihTopicIndex] = useState(0);
+  const [fikihSummaries, setFikihSummaries] = useState<Record<string, string>>(
+    {},
+  );
+  const [fikihStatus, setFikihStatus] = useState("");
   const [murajaahDoneCount, setMurajaahDoneCount] = useState(0);
   const [checklistTimestamps, setChecklistTimestamps] = useState<
     Record<number, string>
@@ -915,6 +874,17 @@ export function DailyChecklist({
     () => calculateTadarusXpPreview(tadarusReportForm.totalAyatRead),
     [tadarusReportForm.totalAyatRead],
   );
+  const currentFikihTopic = fikihRamadanTopics[fikihTopicIndex];
+  const currentFikihSummary = currentFikihTopic
+    ? (fikihSummaries[currentFikihTopic.key] ?? "")
+    : "";
+  const fikihCompletedCount = useMemo(
+    () =>
+      fikihRamadanTopics.filter(
+        (topic) => (fikihSummaries[topic.key] ?? "").trim().length > 0,
+      ).length,
+    [fikihSummaries],
+  );
   const selectedKultumVideo = useMemo(() => {
     const id = Number(kultumForm.teacherVideoId);
     if (!Number.isInteger(id) || id <= 0) return null;
@@ -936,12 +906,36 @@ export function DailyChecklist({
   }, []);
 
   useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(FIKIH_SUMMARY_STORAGE_KEY);
+      if (!saved) return;
+      const parsed = JSON.parse(saved) as Record<string, string>;
+      if (!parsed || typeof parsed !== "object") return;
+      const next: Record<string, string> = {};
+      fikihRamadanTopics.forEach((topic) => {
+        const value = parsed[topic.key];
+        if (typeof value === "string") next[topic.key] = value;
+      });
+      setFikihSummaries(next);
+    } catch {
+      // ignore invalid local data
+    }
+  }, []);
+
+  useEffect(() => {
     if (!mounted) return;
     window.localStorage.setItem(
       REMINDER_STORAGE_KEY,
       reminderOn ? "on" : "off",
     );
   }, [mounted, reminderOn]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      FIKIH_SUMMARY_STORAGE_KEY,
+      JSON.stringify(fikihSummaries),
+    );
+  }, [fikihSummaries]);
 
   useEffect(() => {
     if (!activePilarMission) {
@@ -2131,12 +2125,36 @@ export function DailyChecklist({
     return isSyawal && day === 1;
   }, [reportDateKey]);
 
+  const openFikihModal = () => {
+    setFikihTopicIndex(0);
+    setFikihStatus("");
+    setShowFikihModal(true);
+  };
+
+  const saveCurrentFikihSummary = () => {
+    if (!currentFikihTopic) return false;
+    if (!currentFikihSummary.trim()) {
+      setFikihStatus("Ringkasan materi ini wajib diisi sebelum lanjut.");
+      return false;
+    }
+    setFikihStatus("Ringkasan tersimpan.");
+    return true;
+  };
+
+  const goToNextFikihTopic = () => {
+    if (!saveCurrentFikihSummary()) return;
+    setFikihStatus("");
+    setFikihTopicIndex((prev) =>
+      Math.min(prev + 1, fikihRamadanTopics.length - 1),
+    );
+  };
+
   const mobileBottomNav = (
     <nav className="fixed inset-x-0 bottom-0 z-[90] border-t border-brand-300/70 bg-gradient-to-b from-brand-800 to-brand-900 px-2 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_28px_rgba(0,0,0,0.42)] backdrop-blur dark:border-slate-700 dark:from-slate-900 dark:to-slate-950 sm:hidden">
       <div className="mb-2 flex justify-center">
         <span className="h-1 w-12 rounded-full bg-brand-200/50 dark:bg-slate-500/60" />
       </div>
-      <div className="mx-auto grid w-full max-w-lg grid-cols-6 gap-1.5">
+      <div className="mx-auto grid w-full max-w-lg grid-cols-5 gap-1.5">
         {mobileNavItems.map((item) =>
           item.kind === "category" ? (
             <button
@@ -2398,10 +2416,13 @@ export function DailyChecklist({
                       const detail = missionDetails[m.code];
                       const isMurajaah = m.code === "HAFALAN_SURAT_PENDEK";
                       const isFikih = m.code === "MATERI_FIKIH_RAMADAN";
+                      const fikihPercent = Math.round(
+                        (fikihCompletedCount / fikihRamadanTopics.length) * 100,
+                      );
                       const done = isMurajaah
                         ? murajaahDoneCount >= 20
                         : isFikih
-                          ? false
+                          ? fikihCompletedCount >= fikihRamadanTopics.length
                           : selected.includes(m.id);
                       const isShalatLimaWaktu =
                         m.code === "CATATAN_PUASA_DAN_JAMAAH";
@@ -2420,14 +2441,17 @@ export function DailyChecklist({
                             : 0;
                       const progressPercent = isMurajaah
                         ? murajaahPercent
-                        : isShalatLimaWaktu
-                          ? Math.round(
-                              (reportedPrayerCount / prayerReportOrder.length) *
-                                100,
-                            )
-                          : done
-                            ? 100
-                            : 0;
+                        : isFikih
+                          ? fikihPercent
+                          : isShalatLimaWaktu
+                            ? Math.round(
+                                (reportedPrayerCount /
+                                  prayerReportOrder.length) *
+                                  100,
+                              )
+                            : done
+                              ? 100
+                              : 0;
                       return (
                         <article key={m.id} className="relative">
                           <span
@@ -2445,7 +2469,7 @@ export function DailyChecklist({
                                 return;
                               }
                               if (m.code === "MATERI_FIKIH_RAMADAN") {
-                                setShowFikihModal(true);
+                                openFikihModal();
                                 return;
                               }
                               setActivePilarMission(m);
@@ -2476,6 +2500,12 @@ export function DailyChecklist({
                                 pendek juz 30 ({JUZ30_TOTAL_SURAH} surat)
                               </p>
                             ) : null}
+                            {isFikih ? (
+                              <p className="mt-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+                                Ringkasan terisi {fikihCompletedCount}/
+                                {fikihRamadanTopics.length} materi
+                              </p>
+                            ) : null}
                             <p className="mt-2 text-[32px] leading-none text-slate-200 dark:text-slate-700/70">
                               —
                             </p>
@@ -2486,10 +2516,10 @@ export function DailyChecklist({
                             {isFikih ? (
                               <div className="mt-4 flex items-center justify-between text-sm">
                                 <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
-                                  Baca Materi
+                                  Baca Materi & Isi Ringkasan
                                 </span>
                                 <span className="text-slate-500 dark:text-slate-300">
-                                  Literasi
+                                  {progressPercent}%
                                 </span>
                               </div>
                             ) : (
@@ -2597,32 +2627,103 @@ export function DailyChecklist({
               Materi Fikih Ramadan
             </h3>
             <p className="mt-1 text-sm text-brand-100/95">
-              Ringkasan materi literasi ibadah Ramadan.
+              Satu materi per halaman. Isi ringkasan pada setiap materi.
             </p>
-            <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto rounded-2xl border border-brand-100/35 bg-brand-950/20 p-3 dark:border-brand-800/40 dark:bg-slate-900/55">
-              {fikihRamadanTopics.map((topic) => (
-                <article
-                  key={topic.title}
-                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800/70"
-                >
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                    {topic.title}
-                  </p>
-                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
-                    {topic.points.map((point) => (
-                      <li key={point}>{point}</li>
-                    ))}
-                  </ul>
-                </article>
-              ))}
+            <div className="mt-3 flex items-center justify-between text-xs text-brand-100">
+              <span>
+                Materi {fikihTopicIndex + 1} dari {fikihRamadanTopics.length}
+              </span>
+              <span>
+                Ringkasan selesai: {fikihCompletedCount}/
+                {fikihRamadanTopics.length}
+              </span>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowFikihModal(false)}
-              className="mt-5 w-full rounded-xl border border-brand-100/45 bg-brand-950/15 px-4 py-3 text-sm font-semibold text-brand-50 hover:bg-brand-950/25 dark:border-brand-700/45 dark:bg-brand-950/30"
-            >
-              Tutup
-            </button>
+            {currentFikihTopic ? (
+              <div className="mt-4 max-h-[55vh] space-y-4 overflow-y-auto rounded-2xl border border-brand-100/35 bg-brand-950/20 p-3 dark:border-brand-800/40 dark:bg-slate-900/55">
+                <article className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
+                  <p className="text-base font-bold text-slate-800 dark:text-slate-100">
+                    {currentFikihTopic.title}
+                  </p>
+                  <div className="mt-3 space-y-3">
+                    {currentFikihTopic.sections.map((section) => (
+                      <div key={section.title}>
+                        <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          {section.title}
+                        </p>
+                        <ul className="mt-1 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
+                          {section.points.map((point) => (
+                            <li key={point}>{point}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <label className="block text-xs font-bold uppercase tracking-[0.08em] text-brand-100">
+                  Ringkasan Siswa (Wajib)
+                  <textarea
+                    value={currentFikihSummary}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setFikihSummaries((prev) => ({
+                        ...prev,
+                        [currentFikihTopic.key]: value,
+                      }));
+                      if (fikihStatus) setFikihStatus("");
+                    }}
+                    placeholder={`Tulis ringkasan materi ${currentFikihTopic.title}...`}
+                    className="mt-1.5 min-h-[120px] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm ring-brand-500/20 transition focus:border-brand-500 focus:ring-4 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                {fikihStatus ? (
+                  <p className="text-xs font-semibold text-amber-100">
+                    {fikihStatus}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  setFikihTopicIndex((prev) => Math.max(0, prev - 1))
+                }
+                disabled={fikihTopicIndex === 0}
+                className="rounded-xl border border-brand-100/45 bg-brand-950/15 px-4 py-3 text-sm font-semibold text-brand-50 hover:bg-brand-950/25 disabled:opacity-50 dark:border-brand-700/45 dark:bg-brand-950/30"
+              >
+                Sebelumnya
+              </button>
+              <button
+                type="button"
+                onClick={saveCurrentFikihSummary}
+                className="rounded-xl border border-brand-100/45 bg-brand-950/15 px-4 py-3 text-sm font-semibold text-brand-50 hover:bg-brand-950/25 dark:border-brand-700/45 dark:bg-brand-950/30"
+              >
+                Simpan
+              </button>
+              {fikihTopicIndex < fikihRamadanTopics.length - 1 ? (
+                <button
+                  type="button"
+                  onClick={goToNextFikihTopic}
+                  className="rounded-xl border border-white/70 bg-white px-4 py-3 text-sm font-semibold text-brand-800 hover:bg-brand-50 dark:border-brand-600 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-700"
+                >
+                  Berikutnya
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!saveCurrentFikihSummary()) return;
+                    setShowFikihModal(false);
+                    setFikihStatus("");
+                  }}
+                  className="rounded-xl border border-white/70 bg-white px-4 py-3 text-sm font-semibold text-brand-800 hover:bg-brand-50 dark:border-brand-600 dark:bg-brand-600 dark:text-white dark:hover:bg-brand-700"
+                >
+                  Selesai
+                </button>
+              )}
+            </div>
           </div>
         </div>
       ) : null}

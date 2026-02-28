@@ -264,7 +264,7 @@ export default async function GuruAnalyticsPage({
     },
     {
       title: "Manajemen",
-      items: [{ label: "Kultum", href: "/guru/kultum" }],
+      items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
     },
     {
       title: "Akses",

@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
-import { VideoManagement } from "@/components/video-management";
+import { GuruFikihManagement } from "@/components/guru-fikih-management";
 import { auth } from "@/lib/auth";
 
-export default async function GuruKultumPage() {
+export default async function GuruFikihPage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   if (session.user.role !== "guru" && session.user.role !== "admin") {
@@ -22,7 +22,10 @@ export default async function GuruKultumPage() {
     },
     {
       title: "Manajemen",
-      items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
+      items: [
+        { label: "Kultum", href: "/guru/kultum" },
+        { label: "Materi Fikih", href: "/guru/fikih" },
+      ],
     },
     {
       title: "Akses",
@@ -40,9 +43,9 @@ export default async function GuruKultumPage() {
       <div className="lg:flex lg:items-start lg:gap-6">
         <DashboardSidebar
           panelLabel="Guru Dashboard"
-          heading="Manajemen Kultum"
+          heading="Manajemen Materi Fikih"
           subheading={session.user.name || ""}
-          currentPath="/guru/kultum"
+          currentPath="/guru/fikih"
           groups={sidebarGroups}
         />
         <div className="min-w-0 flex-1">
@@ -50,21 +53,21 @@ export default async function GuruKultumPage() {
             <DashboardBreadcrumbs
               items={[
                 { label: "Guru", href: "/guru/beranda" },
-                { label: "Kultum" },
+                { label: "Materi Fikih" },
               ]}
             />
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-700 dark:text-brand-300">
-              Guru Kultum
+              Guru Fikih
             </p>
             <h1 className="mt-1 text-2xl font-bold text-slate-900 dark:text-slate-100">
-              Manajemen Video Kultum
+              Manajemen Materi Fikih Ramadan
             </h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Tambah, aktifkan, dan review video kultum untuk siswa.
+              Lengkapi materi agar siswa mendapatkan penjelasan yang utuh.
             </p>
           </header>
 
-          <VideoManagement />
+          <GuruFikihManagement />
         </div>
       </div>
     </main>

@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte, sql } from "drizzle-orm";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
@@ -12,6 +12,8 @@ import {
   searchSholatCities,
 } from "@/lib/apimuslim";
 import { db } from "@/lib/db";
+import { defaultFikihMaterials } from "@/lib/fikih-materials";
+import { inferNameFromEmail, pabpEmails } from "@/lib/pabp";
 import {
   calculateDailyXp,
   computeLevel,
@@ -64,6 +66,35 @@ function isIdulfitriWindow(reportDate: string) {
     return isSyawal && day === 1;
   } catch {
     return false;
+  }
+}
+
+async function ensureFikihMaterialsTable() {
+  await db.execute(sql`
+    create table if not exists fikih_materials (
+      topic_key text primary key,
+      title text not null,
+      sections jsonb not null,
+      updated_by text references users(id) on delete set null,
+      updated_at timestamptz not null default now()
+    )
+  `);
+}
+
+async function seedFikihMaterialsIfEmpty() {
+  await ensureFikihMaterialsTable();
+  const existing = await db.execute(
+    sql`select count(*)::int as count from fikih_materials`,
+  );
+  const count = Number(existing.rows[0]?.count || 0);
+  if (count > 0) return;
+
+  for (const topic of defaultFikihMaterials) {
+    await db.execute(sql`
+      insert into fikih_materials (topic_key, title, sections)
+      values (${topic.key}, ${topic.title}, ${JSON.stringify(topic.sections)}::jsonb)
+      on conflict (topic_key) do nothing
+    `);
   }
 }
 
@@ -140,6 +171,106 @@ app.get("/teacher-videos", async (c) => {
     console.error("Failed to fetch teacher videos:", error);
     return c.json({ videos: [] });
   }
+});
+
+app.get("/fikih/materials", async (c) => {
+  await seedFikihMaterialsIfEmpty();
+  const rows = await db.execute(sql`
+    select topic_key, title, sections
+    from fikih_materials
+    order by topic_key asc
+  `);
+  const ordered = defaultFikihMaterials
+    .map((topic) => {
+      const row = rows.rows.find((item) => item.topic_key === topic.key);
+      if (!row) return topic;
+      return {
+        key: topic.key,
+        title: String(row.title || topic.title),
+        sections: Array.isArray(row.sections)
+          ? (row.sections as Array<{ title: string; points: string[] }>)
+          : topic.sections,
+      };
+    })
+    .filter(Boolean);
+
+  return c.json({ materials: ordered });
+});
+
+app.put(
+  "/fikih/materials/:key",
+  zValidator(
+    "json",
+    z.object({
+      title: z.string().trim().min(1).max(120),
+      sections: z.array(
+        z.object({
+          title: z.string().trim().min(1).max(140),
+          points: z.array(z.string().trim().min(1).max(300)).min(1),
+        }),
+      ),
+    }),
+  ),
+  async (c) => {
+    const me = c.get("user");
+    const dbUser = await db.query.users.findFirst({
+      where: eq(users.id, me.id),
+    });
+    if (dbUser?.role !== "guru" && dbUser?.role !== "admin") {
+      return c.json({ message: "Forbidden" }, 403);
+    }
+
+    const key = c.req.param("key");
+    const payload = c.req.valid("json");
+    const isKnownKey = defaultFikihMaterials.some((topic) => topic.key === key);
+    if (!isKnownKey) {
+      return c.json({ message: "Materi tidak ditemukan." }, 404);
+    }
+
+    await ensureFikihMaterialsTable();
+    await db.execute(sql`
+      insert into fikih_materials (topic_key, title, sections, updated_by, updated_at)
+      values (
+        ${key},
+        ${payload.title},
+        ${JSON.stringify(payload.sections)}::jsonb,
+        ${me.id},
+        now()
+      )
+      on conflict (topic_key) do update
+      set title = excluded.title,
+          sections = excluded.sections,
+          updated_by = excluded.updated_by,
+          updated_at = now()
+    `);
+
+    return c.json({ message: "Materi berhasil disimpan." });
+  },
+);
+
+app.get("/pabp/profiles", async (c) => {
+  const records = await db
+    .select({
+      email: users.email,
+      name: users.name,
+      image: users.image,
+      role: users.role,
+    })
+    .from(users)
+    .where(inArray(users.email, [...pabpEmails]));
+
+  const map = new Map(records.map((row) => [row.email.toLowerCase(), row]));
+  const profiles = pabpEmails.map((email) => {
+    const found = map.get(email.toLowerCase());
+    return {
+      email,
+      name: found?.name || inferNameFromEmail(email),
+      image: found?.image || null,
+      role: found?.role || "guru",
+    };
+  });
+
+  return c.json({ profiles });
 });
 
 app.get(
