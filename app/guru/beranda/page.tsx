@@ -201,7 +201,7 @@ export default async function GuruBerandaPage({
     {
       title: "Akses",
       items: [
-        { label: "Leaderboard", href: "/leaderboard" },
+        { label: "Peringkat", href: "/leaderboard" },
         ...(session.user.role === "admin"
           ? [{ label: "Admin Dashboard", href: "/admin/beranda" }]
           : []),

@@ -186,7 +186,7 @@ export default async function AdminBerandaPage({
       title: "Manajemen",
       items: [
         { label: "Manajemen User", href: "/admin/users" },
-        { label: "Leaderboard", href: "/leaderboard" },
+        { label: "Peringkat", href: "/leaderboard" },
       ],
     },
     {

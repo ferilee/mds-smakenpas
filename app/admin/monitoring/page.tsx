@@ -251,7 +251,7 @@ export default async function AdminMonitoringPage({
       title: "Manajemen",
       items: [
         { label: "Manajemen User", href: "/admin/users" },
-        { label: "Leaderboard", href: "/leaderboard" },
+        { label: "Peringkat", href: "/leaderboard" },
       ],
     },
     {

@@ -97,7 +97,7 @@ export default async function DashboardPage({
                 d="M4 19h16M7 19V9h3v10m4 0V5h3v14"
               />
             </svg>
-            Leaderboard
+            Peringkat
           </Link>
           <Link
             href={isPrayerPanelOpen ? "/dashboard" : "/dashboard?panel=prayer"}
@@ -171,8 +171,8 @@ export default async function DashboardPage({
               />
             </svg>
           </Link>
-          <SignOutButton />
           <PwaInstallButton />
+          <SignOutButton />
         </div>
       </header>
 

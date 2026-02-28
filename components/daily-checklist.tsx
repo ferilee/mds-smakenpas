@@ -183,7 +183,7 @@ const mobileNavItems: MobileNavItem[] = [
   { label: "SUNNAH", kind: "category", target: "SUNNAH" },
   { label: "LITERASI", kind: "category", target: "LITERASI" },
   { label: "AKHLAK", kind: "category", target: "AKHLAK" },
-  { label: "LEADERBOARD", kind: "route", href: "/leaderboard" },
+  { label: "PERINGKAT", kind: "route", href: "/leaderboard" },
 ];
 
 const STORAGE_KEY = "prayer_city_id";
@@ -703,7 +703,7 @@ function BottomNavIcon({ label }: { label: string }) {
       );
     case "MATERI":
       return null;
-    case "LEADERBOARD":
+    case "PERINGKAT":
       return (
         <svg
           viewBox="0 0 24 24"
@@ -843,6 +843,7 @@ export function DailyChecklist({
   const [syawalFirstDate, setSyawalFirstDate] = useState<Date | null>(null);
   const [reportDateKey, setReportDateKey] = useState("");
   const [showFastingModal, setShowFastingModal] = useState(false);
+  const [showFikihModal, setShowFikihModal] = useState(false);
   const [murajaahDoneCount, setMurajaahDoneCount] = useState(0);
   const [checklistTimestamps, setChecklistTimestamps] = useState<
     Record<number, string>
@@ -2393,36 +2394,15 @@ export function DailyChecklist({
                 <div className="relative pl-9">
                   <div className="absolute bottom-0 left-3.5 top-1 rounded-full border-l border-white/50" />
                   <div className="space-y-4">
-                    {activeCategory === "LITERASI" ? (
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100">
-                        <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
-                          Materi Fikih Ramadan
-                        </p>
-                        <div className="space-y-3">
-                          {fikihRamadanTopics.map((topic) => (
-                            <div
-                              key={topic.title}
-                              className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900/40"
-                            >
-                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                {topic.title}
-                              </p>
-                              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
-                                {topic.points.map((point) => (
-                                  <li key={point}>{point}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
                     {visibleMissions.map((m) => {
                       const detail = missionDetails[m.code];
                       const isMurajaah = m.code === "HAFALAN_SURAT_PENDEK";
+                      const isFikih = m.code === "MATERI_FIKIH_RAMADAN";
                       const done = isMurajaah
                         ? murajaahDoneCount >= 20
-                        : selected.includes(m.id);
+                        : isFikih
+                          ? false
+                          : selected.includes(m.id);
                       const isShalatLimaWaktu =
                         m.code === "CATATAN_PUASA_DAN_JAMAAH";
                       const murajaahPercent = Math.min(
@@ -2464,6 +2444,10 @@ export function DailyChecklist({
                                 router.push("/murajaah" as Route);
                                 return;
                               }
+                              if (m.code === "MATERI_FIKIH_RAMADAN") {
+                                setShowFikihModal(true);
+                                return;
+                              }
                               setActivePilarMission(m);
                             }}
                             className="w-full rounded-3xl bg-slate-100 p-5 text-left text-slate-700 shadow-sm ring-1 ring-black/5 transition hover:bg-slate-50 dark:bg-slate-800/70 dark:text-slate-100 dark:ring-white/10 dark:hover:bg-slate-800"
@@ -2499,20 +2483,33 @@ export function DailyChecklist({
                               {detail?.description ||
                                 "Selesaikan aktivitas ini untuk menambah progress ibadah harian."}
                             </p>
-                            <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-500/70">
-                              <div
-                                className="h-full rounded-full bg-emerald-500 transition-all"
-                                style={{ width: `${progressPercent}%` }}
-                              />
-                            </div>
-                            <div className="mt-3 flex items-center justify-between text-sm">
-                              <span className="font-semibold text-orange-500">
-                                ★ {displayXp}
-                              </span>
-                              <span className="text-slate-500 dark:text-slate-300">
-                                {progressPercent}%
-                              </span>
-                            </div>
+                            {isFikih ? (
+                              <div className="mt-4 flex items-center justify-between text-sm">
+                                <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
+                                  Baca Materi
+                                </span>
+                                <span className="text-slate-500 dark:text-slate-300">
+                                  Literasi
+                                </span>
+                              </div>
+                            ) : (
+                              <>
+                                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-500/70">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500 transition-all"
+                                    style={{ width: `${progressPercent}%` }}
+                                  />
+                                </div>
+                                <div className="mt-3 flex items-center justify-between text-sm">
+                                  <span className="font-semibold text-orange-500">
+                                    ★ {displayXp}
+                                  </span>
+                                  <span className="text-slate-500 dark:text-slate-300">
+                                    {progressPercent}%
+                                  </span>
+                                </div>
+                              </>
+                            )}
                           </button>
                         </article>
                       );
@@ -2589,6 +2586,43 @@ export function DailyChecklist({
                 Tidak berpuasa
               </button>
             </div>
+          </div>
+        </div>
+      ) : null}
+      {showFikihModal ? (
+        <div className="fixed inset-0 z-[152] flex items-end bg-slate-950/45 p-0 sm:p-4">
+          <div className="w-full rounded-t-3xl border border-brand-300/45 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-5 text-brand-50 shadow-2xl ring-1 ring-brand-200/25 sm:mx-auto sm:max-w-2xl sm:rounded-3xl dark:border-brand-800/50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950">
+            <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-slate-300 sm:hidden" />
+            <h3 className="text-xl font-bold text-brand-50">
+              Materi Fikih Ramadan
+            </h3>
+            <p className="mt-1 text-sm text-brand-100/95">
+              Ringkasan materi literasi ibadah Ramadan.
+            </p>
+            <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto rounded-2xl border border-brand-100/35 bg-brand-950/20 p-3 dark:border-brand-800/40 dark:bg-slate-900/55">
+              {fikihRamadanTopics.map((topic) => (
+                <article
+                  key={topic.title}
+                  className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800/70"
+                >
+                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                    {topic.title}
+                  </p>
+                  <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
+                    {topic.points.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowFikihModal(false)}
+              className="mt-5 w-full rounded-xl border border-brand-100/45 bg-brand-950/15 px-4 py-3 text-sm font-semibold text-brand-50 hover:bg-brand-950/25 dark:border-brand-700/45 dark:bg-brand-950/30"
+            >
+              Tutup
+            </button>
           </div>
         </div>
       ) : null}

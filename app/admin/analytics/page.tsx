@@ -356,7 +356,7 @@ export default async function AdminAnalyticsPage({
       title: "Manajemen",
       items: [
         { label: "Manajemen User", href: "/admin/users" },
-        { label: "Leaderboard", href: "/leaderboard" },
+        { label: "Peringkat", href: "/leaderboard" },
       ],
     },
     {

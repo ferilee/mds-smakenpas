@@ -84,7 +84,7 @@ export function LeaderboardTable() {
     <section className="mx-auto w-full max-w-md overflow-hidden rounded-[28px] border border-brand-200 bg-white shadow-[0_18px_42px_rgba(53,91,33,0.18)] dark:border-slate-800 dark:bg-slate-900/70 dark:shadow-[0_20px_48px_rgba(2,8,23,0.55)]">
       <div className="bg-gradient-to-b from-brand-600 to-brand-700 px-4 pb-5 pt-5 text-white dark:from-brand-800 dark:to-brand-900 sm:px-5">
         <h2 className="text-center text-3xl font-semibold tracking-tight">
-          Leaderboard
+          Peringkat
         </h2>
 
         <div className="mt-4 rounded-2xl bg-white/20 p-1.5 dark:bg-slate-950/30">

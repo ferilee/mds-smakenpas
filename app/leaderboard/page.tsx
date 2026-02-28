@@ -5,6 +5,7 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { GlobalBottomNav } from "@/components/global-bottom-nav";
 import { ProfileInfoModal } from "@/components/profile-info-modal";
 import { ProgressCards } from "@/components/progress-cards";
+import { PwaInstallButton } from "@/components/pwa-install-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { UserAvatar } from "@/components/user-avatar";
@@ -77,8 +78,8 @@ export default async function LeaderboardPage() {
           <Link
             href="/leaderboard"
             className="grid h-10 w-10 place-items-center rounded-xl border border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-            aria-label="Leaderboard"
-            title="Leaderboard"
+            aria-label="Peringkat"
+            title="Peringkat"
           >
             <svg
               viewBox="0 0 24 24"
@@ -141,6 +142,7 @@ export default async function LeaderboardPage() {
               />
             </svg>
           </Link>
+          <PwaInstallButton />
           <SignOutButton />
         </div>
       </header>

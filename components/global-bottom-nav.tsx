@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 type NavItem = {
-  label: "UTAMA" | "SUNNAH" | "LITERASI" | "AKHLAK" | "LEADERBOARD";
+  label: "UTAMA" | "SUNNAH" | "LITERASI" | "AKHLAK" | "PERINGKAT";
   href:
     | "/dashboard?category=pilar"
     | "/dashboard?category=sunnah"
@@ -18,7 +18,7 @@ const navItems: NavItem[] = [
   { label: "SUNNAH", href: "/dashboard?category=sunnah" },
   { label: "LITERASI", href: "/dashboard?category=literasi" },
   { label: "AKHLAK", href: "/dashboard?category=akhlak" },
-  { label: "LEADERBOARD", href: "/leaderboard" },
+  { label: "PERINGKAT", href: "/leaderboard" },
 ];
 
 function BottomNavIcon({ label }: { label: NavItem["label"] }) {
@@ -87,7 +87,7 @@ function BottomNavIcon({ label }: { label: NavItem["label"] }) {
           <path strokeWidth="2.4" strokeLinecap="round" d="M15 8h6m-3-3v6" />
         </svg>
       );
-    case "LEADERBOARD":
+    case "PERINGKAT":
       return (
         <svg
           viewBox="0 0 24 24"
@@ -112,7 +112,7 @@ export function GlobalBottomNav() {
 
   const activeLabel: NavItem["label"] =
     pathname === "/leaderboard"
-      ? "LEADERBOARD"
+      ? "PERINGKAT"
       : pathname === "/dashboard"
         ? dashboardCategory === "sunnah"
           ? "SUNNAH"
