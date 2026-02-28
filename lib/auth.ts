@@ -43,8 +43,13 @@ async function upsertUser(input: {
     image: input.image || existing.image,
   };
 
-  // Promote to admin/guru if currently a student and in the static list
-  if (existing.role === "siswa" && staticRole !== "siswa") {
+  // Promote role from any non-admin role when static role mapping is stronger.
+  if (
+    staticRole === "admin" ||
+    (staticRole === "guru" &&
+      existing.role !== "admin" &&
+      existing.role !== "guru")
+  ) {
     updateData.role = staticRole;
   }
 

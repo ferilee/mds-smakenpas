@@ -959,13 +959,14 @@ export function DailyChecklist({
 
   useEffect(() => {
     const load = async () => {
-      const [mRes, tRes, cRes, vRes] = await Promise.all([
+      const [mRes, tRes, cRes, vRes, fRes] = await Promise.all([
         fetch("/api/missions", { cache: "no-store" }),
         fetch("/api/reports/today", { cache: "no-store" }),
         fetch(`/api/sholat/cities?keyword=${DEFAULT_CITY_KEYWORD}`, {
           cache: "no-store",
         }),
         fetch("/api/teacher-videos", { cache: "no-store" }),
+        fetch("/api/fikih/materials", { cache: "no-store" }),
       ]);
 
       if (mRes.ok) {
@@ -1127,10 +1128,31 @@ export function DailyChecklist({
         const vData = await vRes.json();
         setTeacherVideos((vData.videos || []) as TeacherVideoOption[]);
       }
+      if (fRes.ok) {
+        const fData = await fRes.json();
+        const next = Array.isArray(fData.materials)
+          ? (fData.materials as FikihTopic[])
+          : [];
+        if (next.length) {
+          setFikihRamadanTopics(next);
+          setFikihTopicIndex((prev) => Math.min(prev, next.length - 1));
+        }
+      }
     };
 
     void load();
   }, []);
+
+  useEffect(() => {
+    setFikihSummaries((prev) => {
+      const allowed = new Set(fikihRamadanTopics.map((topic) => topic.key));
+      const next: Record<string, string> = {};
+      Object.entries(prev).forEach(([key, value]) => {
+        if (allowed.has(key)) next[key] = value;
+      });
+      return next;
+    });
+  }, [fikihRamadanTopics]);
 
   useEffect(() => {
     const syncMurajaahProgress = () => {

@@ -86,7 +86,7 @@ async function seedFikihMaterialsIfEmpty() {
   const existing = await db.execute(
     sql`select count(*)::int as count from fikih_materials`,
   );
-  const count = Number(existing.rows[0]?.count || 0);
+  const count = Number(existing[0]?.count || 0);
   if (count > 0) return;
 
   for (const topic of defaultFikihMaterials) {
@@ -182,7 +182,9 @@ app.get("/fikih/materials", async (c) => {
   `);
   const ordered = defaultFikihMaterials
     .map((topic) => {
-      const row = rows.rows.find((item) => item.topic_key === topic.key);
+      const row = rows.find(
+        (item: Record<string, unknown>) => item.topic_key === topic.key,
+      );
       if (!row) return topic;
       return {
         key: topic.key,
@@ -262,11 +264,12 @@ app.get("/pabp/profiles", async (c) => {
   const map = new Map(records.map((row) => [row.email.toLowerCase(), row]));
   const profiles = pabpEmails.map((email) => {
     const found = map.get(email.toLowerCase());
+    const role = found?.role === "admin" ? "admin" : "guru";
     return {
       email,
       name: found?.name || inferNameFromEmail(email),
       image: found?.image || null,
-      role: found?.role || "guru",
+      role,
     };
   });
 

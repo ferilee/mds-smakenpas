@@ -5,6 +5,7 @@ import { LeaderboardTable } from "@/components/leaderboard-table";
 import { GlobalBottomNav } from "@/components/global-bottom-nav";
 import { ProfileInfoModal } from "@/components/profile-info-modal";
 import { ProgressCards } from "@/components/progress-cards";
+import { PabpProfilesButton } from "@/components/pabp-profiles-button";
 import { PwaInstallButton } from "@/components/pwa-install-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -143,6 +144,7 @@ export default async function LeaderboardPage() {
             </svg>
           </Link>
           <PwaInstallButton />
+          <PabpProfilesButton />
           <SignOutButton />
         </div>
       </header>
