@@ -25,6 +25,8 @@ type Video = {
 
 export function VideoManagement() {
   const [videos, setVideos] = useState<Video[]>([]);
+  const [previewVideoId, setPreviewVideoId] = useState<number | null>(null);
+  const [previewVersion, setPreviewVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -39,6 +41,16 @@ export function VideoManagement() {
   useEffect(() => {
     fetchVideos();
   }, []);
+
+  useEffect(() => {
+    if (!videos.length) {
+      setPreviewVideoId(null);
+      return;
+    }
+    if (!videos.some((video) => video.id === previewVideoId)) {
+      setPreviewVideoId(videos[0].id);
+    }
+  }, [videos, previewVideoId]);
 
   const parseJsonSafe = async (res: Response) => {
     const text = await res.text();
@@ -82,7 +94,8 @@ export function VideoManagement() {
       if (!res.ok) {
         setError(data.message || "Gagal menambahkan video.");
       } else {
-        setVideos([data.video, ...videos]);
+        setVideos((prev) => [data.video, ...prev]);
+        setPreviewVideoId(data.video.id);
         setIsAdding(false);
         setForm({ title: "", youtubeUrl: "", ustadz: "" });
       }
@@ -126,6 +139,11 @@ export function VideoManagement() {
       console.error("Failed to delete video", err);
     }
   };
+
+  const previewVideo = videos.find((video) => video.id === previewVideoId);
+  const previewEmbedSrc = previewVideo
+    ? `https://www.youtube.com/embed/${encodeURIComponent(previewVideo.videoId)}?autoplay=1&mute=1&rel=0&modestbranding=1&playsinline=1&v=${previewVersion}`
+    : "";
 
   return (
     <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60 overflow-hidden">
@@ -220,6 +238,45 @@ export function VideoManagement() {
         </div>
       )}
 
+      {!loading && previewVideo && (
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/40">
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Preview Video
+              </p>
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                {previewVideo.title}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {previewVideo.ustadz || "Pemateri"}
+              </p>
+            </div>
+            <a
+              href={previewVideo.youtubeUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1 rounded-lg bg-red-600 px-2.5 text-[11px] font-bold text-white transition hover:bg-red-700"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              YouTube
+            </a>
+          </div>
+          <div className="overflow-hidden rounded-lg border border-slate-200 bg-black dark:border-slate-700">
+            <div className="aspect-video w-full">
+              <iframe
+                src={previewEmbedSrc}
+                title={previewVideo.title}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="overflow-x-auto rounded-xl border border-slate-100 dark:border-slate-800">
         <table className="w-full text-left text-sm">
           <thead className="bg-slate-50/50 text-[10px] uppercase tracking-wider text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
@@ -257,7 +314,7 @@ export function VideoManagement() {
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="relative h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+                      <div className="relative hidden h-12 w-20 flex-shrink-0 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm sm:block">
                         <img
                           src={`https://img.youtube.com/vi/${video.videoId}/mqdefault.jpg`}
                           alt={video.title}
@@ -281,6 +338,7 @@ export function VideoManagement() {
                           <a
                             href={video.youtubeUrl}
                             target="_blank"
+                            rel="noreferrer"
                             className="text-[10px] text-brand-600 hover:text-brand-700 dark:text-brand-400 flex items-center gap-0.5 font-medium underline-offset-2 hover:underline"
                           >
                             Lihat <ExternalLink className="h-3 w-3" />
@@ -315,13 +373,29 @@ export function VideoManagement() {
                     </button>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => handleDeleteVideo(video.id)}
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 transition-all"
-                      title="Hapus Video"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => {
+                          setPreviewVideoId(video.id);
+                          setPreviewVersion((v) => v + 1);
+                        }}
+                        className={`inline-flex h-8 w-8 items-center justify-center rounded-lg transition-all ${
+                          previewVideoId === video.id
+                            ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+                            : "text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                        }`}
+                        title="Preview Video"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteVideo(video.id)}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 transition-all"
+                        title="Hapus Video"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -334,8 +408,7 @@ export function VideoManagement() {
         <div className="mt-3 flex items-center justify-between text-[10px] text-slate-500 px-1">
           <p>Total {videos.length} video tersedia</p>
           <p className="flex items-center gap-1">
-            <Eye className="h-3 w-3" /> Klik status untuk
-            mengaktifkan/nonaktifkan
+            <Eye className="h-3 w-3" /> Klik ikon mata untuk preview cepat
           </p>
         </div>
       )}
