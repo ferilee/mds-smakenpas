@@ -4,13 +4,12 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 
 type NavItem = {
-  label: "UTAMA" | "SUNNAH" | "LITERASI" | "AKHLAK" | "MATERI" | "LEADERBOARD";
+  label: "UTAMA" | "SUNNAH" | "LITERASI" | "AKHLAK" | "LEADERBOARD";
   href:
     | "/dashboard?category=pilar"
     | "/dashboard?category=sunnah"
     | "/dashboard?category=literasi"
     | "/dashboard?category=akhlak"
-    | "/materi-ramadan"
     | "/leaderboard";
 };
 
@@ -19,7 +18,6 @@ const navItems: NavItem[] = [
   { label: "SUNNAH", href: "/dashboard?category=sunnah" },
   { label: "LITERASI", href: "/dashboard?category=literasi" },
   { label: "AKHLAK", href: "/dashboard?category=akhlak" },
-  { label: "MATERI", href: "/materi-ramadan" },
   { label: "LEADERBOARD", href: "/leaderboard" },
 ];
 
@@ -89,22 +87,6 @@ function BottomNavIcon({ label }: { label: NavItem["label"] }) {
           <path strokeWidth="2.4" strokeLinecap="round" d="M15 8h6m-3-3v6" />
         </svg>
       );
-    case "MATERI":
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          className={cls}
-        >
-          <path
-            strokeWidth="2.4"
-            strokeLinejoin="round"
-            d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14H6.5A2.5 2.5 0 0 0 4 20.5v-14Z"
-          />
-          <path strokeWidth="2.4" strokeLinecap="round" d="M8 8h8M8 12h8" />
-        </svg>
-      );
     case "LEADERBOARD":
       return (
         <svg
@@ -129,26 +111,24 @@ export function GlobalBottomNav() {
   const dashboardCategory = searchParams.get("category") ?? "pilar";
 
   const activeLabel: NavItem["label"] =
-    pathname === "/materi-ramadan"
-      ? "MATERI"
-      : pathname === "/leaderboard"
-        ? "LEADERBOARD"
-        : pathname === "/dashboard"
-          ? dashboardCategory === "sunnah"
-            ? "SUNNAH"
-            : dashboardCategory === "literasi"
-              ? "LITERASI"
-              : dashboardCategory === "akhlak"
-                ? "AKHLAK"
-                : "UTAMA"
-          : "UTAMA";
+    pathname === "/leaderboard"
+      ? "LEADERBOARD"
+      : pathname === "/dashboard"
+        ? dashboardCategory === "sunnah"
+          ? "SUNNAH"
+          : dashboardCategory === "literasi"
+            ? "LITERASI"
+            : dashboardCategory === "akhlak"
+              ? "AKHLAK"
+              : "UTAMA"
+        : "UTAMA";
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-[90] border-t border-brand-300/70 bg-gradient-to-b from-brand-800 to-brand-900 px-2 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 shadow-[0_-10px_28px_rgba(0,0,0,0.42)] backdrop-blur dark:border-slate-700 dark:from-slate-900 dark:to-slate-950 sm:hidden">
       <div className="mb-2 flex justify-center">
         <span className="h-1 w-12 rounded-full bg-brand-200/50 dark:bg-slate-500/60" />
       </div>
-      <div className="mx-auto grid w-full max-w-lg grid-cols-6 gap-1.5">
+      <div className="mx-auto grid w-full max-w-lg grid-cols-5 gap-1.5">
         {navItems.map((item) => (
           <Link
             key={item.label}

@@ -75,26 +75,6 @@ export default async function LeaderboardPage() {
             </svg>
           </Link>
           <Link
-            href="/materi-ramadan"
-            className="grid h-10 w-10 place-items-center rounded-xl border border-slate-300 dark:border-slate-700 dark:text-slate-200"
-            aria-label="Materi Ramadan"
-            title="Materi Ramadan"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-5 w-5"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path
-                strokeWidth="1.8"
-                strokeLinejoin="round"
-                d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14H6.5A2.5 2.5 0 0 0 4 20.5v-14Z"
-              />
-              <path strokeWidth="1.8" strokeLinecap="round" d="M8 8h8M8 12h8" />
-            </svg>
-          </Link>
-          <Link
             href="/leaderboard"
             className="grid h-10 w-10 place-items-center rounded-xl border border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
             aria-label="Leaderboard"

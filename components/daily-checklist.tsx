@@ -99,6 +99,57 @@ type KultumForm = {
   poinPelajaranText: string;
 };
 
+const fikihRamadanTopics = [
+  {
+    title: "Taharah",
+    points: [
+      "Makna bersuci sebagai syarat utama ibadah.",
+      "Najis, hadas kecil, hadas besar, dan cara mensucikannya.",
+      "Pembiasaan kebersihan pribadi selama Ramadan.",
+    ],
+  },
+  {
+    title: "Wudlu",
+    points: [
+      "Rukun, sunnah, dan hal-hal yang membatalkan wudlu.",
+      "Praktik wudlu yang tertib dan hemat air.",
+      "Koreksi kesalahan wudlu yang sering terjadi.",
+    ],
+  },
+  {
+    title: "Mandi Wajib",
+    points: [
+      "Sebab-sebab mandi wajib dan niatnya.",
+      "Tata cara mandi wajib sesuai tuntunan.",
+      "Keterkaitan mandi wajib dengan sahnya ibadah.",
+    ],
+  },
+  {
+    title: "Shalat",
+    points: [
+      "Penguatan rukun, wajib, dan sunnah shalat.",
+      "Shalat berjamaah: adab makmum dan imam.",
+      "Muhasabah kualitas shalat harian peserta didik.",
+    ],
+  },
+  {
+    title: "Puasa",
+    points: [
+      "Rukun puasa, hal yang membatalkan, dan adab puasa.",
+      "Amalan pendukung: sahur, berbuka, dan doa.",
+      "Strategi menjaga semangat puasa di lingkungan sekolah.",
+    ],
+  },
+  {
+    title: "Shalat Tarawih",
+    points: [
+      "Keutamaan qiyam Ramadan (tarawih).",
+      "Adab tarawih berjamaah di masjid/mushala.",
+      "Konsistensi tarawih hingga akhir Ramadan.",
+    ],
+  },
+] as const;
+
 const navItems = [
   {
     key: "PILAR_UTAMA",
@@ -125,14 +176,13 @@ const navItems = [
 type CategoryKey = (typeof navItems)[number]["key"];
 type MobileNavItem =
   | { label: string; kind: "category"; target: CategoryKey }
-  | { label: string; kind: "route"; href: "/materi-ramadan" | "/leaderboard" };
+  | { label: string; kind: "route"; href: "/leaderboard" };
 
 const mobileNavItems: MobileNavItem[] = [
   { label: "UTAMA", kind: "category", target: "PILAR_UTAMA" },
   { label: "SUNNAH", kind: "category", target: "SUNNAH" },
   { label: "LITERASI", kind: "category", target: "LITERASI" },
   { label: "AKHLAK", kind: "category", target: "AKHLAK" },
-  { label: "MATERI", kind: "route", href: "/materi-ramadan" },
   { label: "LEADERBOARD", kind: "route", href: "/leaderboard" },
 ];
 
@@ -156,7 +206,7 @@ const missionDetails: Record<string, MissionDetail> = {
   CATATAN_PUASA_DAN_JAMAAH: {
     title: "Shalat Lima Waktu",
     description:
-      '"Amal yang paling dicintai Allah adalah yang dikerjakan terus-menerus walaupun sedikit." (HR. Bukhari Muslim)',
+      'Dari Abu Hurairah R.A., dia berkata: "Sesungguhnya Rasulullah Shallallahu \'alaihi wa sallam bersabda: Shalat lima waktu, hari Jumat ke Jumat berikutnya, dan dari puasa Ramadan satu sampai puasa Ramadan berikutnya adalah penghapus dosa; selama seseorang menjauhi dosa-dosa besar." (HR. Muslim)',
   },
   TADARUS_RAMADAN: {
     title: "Baca Al-Quran Harian",
@@ -647,21 +697,7 @@ function BottomNavIcon({ label }: { label: string }) {
         </svg>
       );
     case "MATERI":
-      return (
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          className={cls}
-        >
-          <path
-            strokeWidth="2.4"
-            strokeLinejoin="round"
-            d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14H6.5A2.5 2.5 0 0 0 4 20.5v-14Z"
-          />
-          <path strokeWidth="2.4" strokeLinecap="round" d="M8 8h8M8 12h8" />
-        </svg>
-      );
+      return null;
     case "LEADERBOARD":
       return (
         <svg
@@ -2340,6 +2376,30 @@ export function DailyChecklist({
                 <div className="relative pl-9">
                   <div className="absolute bottom-0 left-3.5 top-1 rounded-full border-l border-white/50" />
                   <div className="space-y-4">
+                    {activeCategory === "LITERASI" ? (
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-100">
+                        <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                          Materi Fikih Ramadan
+                        </p>
+                        <div className="space-y-3">
+                          {fikihRamadanTopics.map((topic) => (
+                            <div
+                              key={topic.title}
+                              className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-900/40"
+                            >
+                              <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                {topic.title}
+                              </p>
+                              <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-slate-600 dark:text-slate-300">
+                                {topic.points.map((point) => (
+                                  <li key={point}>{point}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     {visibleMissions.map((m) => {
                       const detail = missionDetails[m.code];
                       const isMurajaah = m.code === "HAFALAN_SURAT_PENDEK";

@@ -196,22 +196,6 @@ export default async function DashboardPage({
               akhlak dan ibadah.
             </p>
           </article>
-          <article className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-900/60 dark:ring-1 dark:ring-slate-800">
-            <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-              Materi Fikih Ramadan
-            </h2>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
-              <li>Taharah, wudlu, dan mandi wajib.</li>
-              <li>Tata cara shalat wajib dan tarawih.</li>
-              <li>Puasa Ramadan: rukun, adab, dan evaluasi.</li>
-            </ul>
-            <Link
-              href="/materi-ramadan"
-              className="mt-4 inline-block text-sm font-semibold text-brand-700 dark:text-brand-300"
-            >
-              Buka halaman materi →
-            </Link>
-          </article>
         </div>
       </section>
     </main>

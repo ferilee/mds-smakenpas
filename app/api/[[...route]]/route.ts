@@ -1,5 +1,5 @@
 import { zValidator } from "@hono/zod-validator";
-import { and, desc, eq, gte, lte } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { endOfMonth, startOfMonth } from "date-fns";
 import { Hono } from "hono";
 import { handle } from "hono/vercel";
@@ -552,6 +552,7 @@ app.get(
     });
     if (!currentUser) return c.json({ message: "User not found" }, 404);
 
+    const studentRoleFilter = inArray(users.role, ["siswa", "user"]);
     const ranking =
       scope === "classroom" && currentUser.classroom
         ? await db
@@ -564,7 +565,12 @@ app.get(
               currentStreak: users.currentStreak,
             })
             .from(users)
-            .where(eq(users.classroom, currentUser.classroom))
+            .where(
+              and(
+                eq(users.classroom, currentUser.classroom),
+                studentRoleFilter,
+              ),
+            )
             .orderBy(desc(users.totalXp))
             .limit(50)
         : await db
@@ -577,6 +583,7 @@ app.get(
               currentStreak: users.currentStreak,
             })
             .from(users)
+            .where(studentRoleFilter)
             .orderBy(desc(users.totalXp))
             .limit(50);
 
