@@ -1,15 +1,8 @@
+@import url("https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@font-face {
-    font-family: "LPMQ Isep Misbah";
-    src:
-        local("LPMQ Isep Misbah"),
-        local("LPMQIsepMisbah"),
-        url("/fonts/LPMQ-IsepMisbah.ttf") format("truetype");
-    font-display: swap;
-}
 
 :root {
     color-scheme: light;
@@ -51,5 +44,5 @@ body {
 }
 
 .quran-ayat-lpmq {
-    font-family: "LPMQ Isep Misbah", "Scheherazade New", "Amiri", serif;
+    font-family: "Amiri", "Scheherazade New", serif;
 }

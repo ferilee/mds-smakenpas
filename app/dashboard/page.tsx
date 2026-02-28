@@ -29,8 +29,8 @@ export default async function DashboardPage({
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const role = session.user.role;
-  if (role === "admin") redirect("/admin/dashboard" as Route);
-  if (role === "guru") redirect("/guru/dashboard" as Route);
+  if (role === "admin") redirect("/admin/beranda" as Route);
+  if (role === "guru") redirect("/guru/beranda" as Route);
 
   const user = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
@@ -100,10 +100,11 @@ export default async function DashboardPage({
           </Link>
           <Link
             href={isPrayerPanelOpen ? "/dashboard" : "/dashboard?panel=prayer"}
-            className={`grid h-10 w-10 place-items-center rounded-xl border ${isPrayerPanelOpen
-              ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
-              : "border-slate-300 dark:border-slate-700 dark:text-slate-200"
-              }`}
+            className={`grid h-10 w-10 place-items-center rounded-xl border ${
+              isPrayerPanelOpen
+                ? "border-brand-300 bg-brand-50 text-brand-800 dark:border-brand-700 dark:bg-brand-900/40 dark:text-brand-200"
+                : "border-slate-300 dark:border-slate-700 dark:text-slate-200"
+            }`}
             aria-label="Waktu Ibadah"
             title="Waktu Ibadah"
           >
