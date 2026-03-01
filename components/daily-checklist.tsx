@@ -192,6 +192,16 @@ const missionDetails: Record<string, MissionDetail> = {
     description:
       "Pastikan zakat fitrah ditunaikan tepat waktu untuk menyucikan jiwa dan membantu yang membutuhkan.",
   },
+  INFAQ_SHADAQAH: {
+    title: "Infaq / Shadaqah",
+    description:
+      "Biasakan berbagi rezeki. Catat nominal infaq/shadaqah yang ditunaikan.",
+  },
+  TAKZIAH_ZIARAH: {
+    title: "Takziah / Ziarah",
+    description:
+      "Kunjungi dan doakan saudara seiman. Tuliskan tujuan kegiatan takziah/ziarah.",
+  },
   SILATURAHIM: {
     title: "Catatan Kegiatan Silaturahim",
     description:
@@ -983,13 +993,7 @@ export function DailyChecklist({
   useEffect(() => {
     if (!shouldShowDelayedFastingPrompt || !reportDateKey) return;
     const timer = window.setTimeout(() => {
-      const promptSeen =
-        window.localStorage.getItem(
-          `${FASTING_PROMPT_SEEN_KEY_PREFIX}:${reportDateKey}`,
-        ) === "1";
-      if (!promptSeen) {
-        setShowFastingModal(true);
-      }
+      setShowFastingModal(true);
     }, FASTING_MODAL_DELAY_MS);
     return () => window.clearTimeout(timer);
   }, [reportDateKey, shouldShowDelayedFastingPrompt]);
@@ -1070,17 +1074,15 @@ export function DailyChecklist({
             ? tData.reportDate
             : new Date().toISOString().slice(0, 10);
         setReportDateKey(reportDate);
-        const fastingPromptKey = `${FASTING_PROMPT_SEEN_KEY_PREFIX}:${reportDate}`;
         const fastingPromptValueKey = `${FASTING_PROMPT_VALUE_KEY_PREFIX}:${reportDate}`;
-        const hasSeenPrompt =
-          window.localStorage.getItem(fastingPromptKey) === "1";
         const storedFastingValue = window.localStorage.getItem(
           fastingPromptValueKey,
         );
         const hasDailyReport = Boolean(tData.report?.answers);
-        if (!hasSeenPrompt && !hasDailyReport) {
+        if (!hasDailyReport) {
           setShouldShowDelayedFastingPrompt(true);
-        } else if (!hasDailyReport && storedFastingValue) {
+        }
+        if (!hasDailyReport && storedFastingValue) {
           setFasting(storedFastingValue === "fasting");
         }
         if (tData.report?.answers) {
@@ -1689,6 +1691,7 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
           idulfitriReport: normalizedIdulfitri,
@@ -1872,6 +1875,7 @@ export function DailyChecklist({
           checklistTimestamps,
           prayerReportTimestamps: nextPrayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
           idulfitriReport: normalizedIdulfitri,
@@ -1949,6 +1953,7 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
           idulfitriReport: idulfitriForm,
@@ -2005,6 +2010,14 @@ export function DailyChecklist({
         ? idulfitriForm
         : undefined;
       const normalizedZakat = zakatForm.via.trim() ? zakatForm : undefined;
+      const normalizedInfaqShadaqah = infaqShadaqahForm.amount.trim()
+        ? infaqShadaqahForm
+        : undefined;
+      const normalizedTakziahZiarah = takziahZiarahForm.purpose.trim()
+        ? takziahZiarahForm
+        : undefined;
+      const newHistoryItem = { ...silaturahimForm };
+      const nextHistory = [...silaturahimHistory, newHistoryItem];
 
       const narrationPayload = mergeNarrationWithSunnah(
         narration,
@@ -2021,11 +2034,15 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
           idulfitriReport: normalizedIdulfitri,
           zakatFitrah: normalizedZakat,
           silaturahimReport: silaturahimForm,
+          silaturahimHistory: nextHistory,
+          infaqShadaqahReport: normalizedInfaqShadaqah,
+          takziahZiarahReport: normalizedTakziahZiarah,
         }),
       });
       const data = await res.json();
@@ -2039,8 +2056,6 @@ export function DailyChecklist({
       setSelected(selectedMissionIds);
       setChecklistTimestamps(nextChecklistTimestamps);
 
-      const newHistoryItem = { ...silaturahimForm };
-      const nextHistory = [...silaturahimHistory, newHistoryItem];
       setSilaturahimHistory(nextHistory);
       setSilaturahimForm(createEmptySilaturahimForm(new Date().toISOString()));
 
@@ -2084,6 +2099,12 @@ export function DailyChecklist({
       setTadarusStatus("Ayat akhir tidak boleh lebih kecil dari ayat awal.");
       return;
     }
+    if (tadarusAyatLimit && ayatTo > tadarusAyatLimit) {
+      setTadarusStatus(
+        `Untuk surat ${surahName}, ayat terakhir maksimal ${tadarusAyatLimit}.`,
+      );
+      return;
+    }
     if (!Number.isInteger(totalAyatRead) || totalAyatRead < 1) {
       setTadarusStatus("Jumlah ayat dibaca harus berupa angka bulat >= 1.");
       return;
@@ -2124,6 +2145,7 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: {
             surahName,
             ayatFrom,
@@ -2211,6 +2233,7 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: {
             teacherVideoId,
@@ -2683,11 +2706,13 @@ export function DailyChecklist({
                       );
                       const displayXp = isMurajaah
                         ? murajaahXpBonus
-                        : isShalatLimaWaktu
-                          ? prayerEarnedXp
-                          : done
-                            ? missionXpValue(m)
-                            : 0;
+                        : isFikih
+                          ? fikihSummaryXp
+                          : isShalatLimaWaktu
+                            ? prayerEarnedXp
+                            : done
+                              ? missionXpValue(m)
+                              : 0;
                       const progressPercent = isMurajaah
                         ? murajaahPercent
                         : isFikih
@@ -2764,9 +2789,15 @@ export function DailyChecklist({
                             </p>
                             {isFikih ? (
                               <div className="mt-4 flex items-center justify-between text-sm">
-                                <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
-                                  Baca Materi & Isi Ringkasan
-                                </span>
+                                <div className="flex flex-col gap-1">
+                                  <span className="rounded-full bg-brand-100 px-3 py-1 text-xs font-semibold text-brand-800 dark:bg-brand-900/40 dark:text-brand-200">
+                                    Baca Materi & Isi Ringkasan
+                                  </span>
+                                  <span className="text-xs font-semibold text-orange-500">
+                                    ★ {fikihSummaryXp} XP (
+                                    {FIKIH_XP_PER_SUMMARY} XP per ringkasan)
+                                  </span>
+                                </div>
                                 <span className="text-slate-500 dark:text-slate-300">
                                   {progressPercent}%
                                 </span>
@@ -2872,12 +2903,26 @@ export function DailyChecklist({
         <div className="fixed inset-0 z-[152] flex items-end bg-slate-950/45 p-0 sm:p-4">
           <div className="w-full rounded-t-3xl border border-brand-300/45 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-5 text-brand-50 shadow-2xl ring-1 ring-brand-200/25 sm:mx-auto sm:max-w-2xl sm:rounded-3xl dark:border-brand-800/50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950">
             <div className="mx-auto mb-4 h-1.5 w-14 rounded-full bg-slate-300 sm:hidden" />
-            <h3 className="text-xl font-bold text-brand-50">
-              Materi Fikih Ramadan
-            </h3>
-            <p className="mt-1 text-sm text-brand-100/95">
-              Satu materi per halaman. Isi ringkasan pada setiap materi.
-            </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-xl font-bold text-brand-50">
+                  Materi Fikih Ramadan
+                </h3>
+                <p className="mt-1 text-sm text-brand-100/95">
+                  Satu materi per halaman. Isi ringkasan pada setiap materi.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowFikihModal(false);
+                  setFikihStatus("");
+                }}
+                className="rounded-lg border border-brand-200/60 bg-brand-950/25 px-3 py-1.5 text-xs font-semibold text-brand-50 hover:bg-brand-950/35"
+              >
+                Tutup
+              </button>
+            </div>
             <div className="mt-3 flex items-center justify-between text-xs text-brand-100">
               <span>
                 Materi {fikihTopicIndex + 1} dari {fikihRamadanTopics.length}
@@ -2887,6 +2932,10 @@ export function DailyChecklist({
                 {fikihRamadanTopics.length}
               </span>
             </div>
+            <p className="mt-2 text-xs font-semibold text-amber-100">
+              Reward: {FIKIH_XP_PER_SUMMARY} XP per ringkasan selesai (Total:{" "}
+              {fikihSummaryXp} XP)
+            </p>
             {currentFikihTopic ? (
               <div className="mt-4 max-h-[55vh] space-y-4 overflow-y-auto rounded-2xl border border-brand-100/35 bg-brand-950/20 p-3 dark:border-brand-800/40 dark:bg-slate-900/55">
                 <article className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm dark:border-slate-700 dark:bg-slate-800/70">
@@ -3204,6 +3253,69 @@ export function DailyChecklist({
                 {zakatStatus ? (
                   <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
                     {zakatStatus}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {activePilarMission.code === "INFAQ_SHADAQAH" ? (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Form Infaq / Shadaqah
+                </p>
+                <label className="block text-xs text-slate-600 dark:text-slate-300">
+                  Jumlah infaq/shadaqah
+                  <input
+                    type="text"
+                    value={infaqShadaqahForm.amount}
+                    onChange={(e) =>
+                      setInfaqShadaqahForm({ amount: e.target.value })
+                    }
+                    placeholder="Contoh: Rp1.000"
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={submitInfaqShadaqahReport}
+                  disabled={infaqSubmitting}
+                  className="mt-3 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {infaqSubmitting ? "Mengirim..." : "Kirim"}
+                </button>
+                {infaqStatus ? (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                    {infaqStatus}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+            {activePilarMission.code === "TAKZIAH_ZIARAH" ? (
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/60">
+                <p className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-200">
+                  Form Takziah / Ziarah
+                </p>
+                <label className="block text-xs text-slate-600 dark:text-slate-300">
+                  Tujuan takziah/ziarah
+                  <textarea
+                    value={takziahZiarahForm.purpose}
+                    onChange={(e) =>
+                      setTakziahZiarahForm({ purpose: e.target.value })
+                    }
+                    placeholder="Contoh: Takziah keluarga almarhum tetangga"
+                    className="mt-1 min-h-20 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-100"
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={submitTakziahZiarahReport}
+                  disabled={takziahSubmitting}
+                  className="mt-3 w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+                >
+                  {takziahSubmitting ? "Mengirim..." : "Kirim"}
+                </button>
+                {takziahStatus ? (
+                  <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
+                    {takziahStatus}
                   </p>
                 ) : null}
               </div>
@@ -3738,6 +3850,11 @@ export function DailyChecklist({
                         <option key={name} value={name} />
                       ))}
                     </datalist>
+                    {tadarusAyatLimit ? (
+                      <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+                        Maksimal ayat surat ini: {tadarusAyatLimit}
+                      </p>
+                    ) : null}
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <label className="block text-xs text-slate-600 dark:text-slate-300">
@@ -3745,6 +3862,7 @@ export function DailyChecklist({
                       <input
                         type="number"
                         min={1}
+                        max={tadarusAyatLimit || undefined}
                         value={tadarusReportForm.ayatFrom}
                         onChange={(e) =>
                           setTadarusReportForm((prev) => {
@@ -3771,6 +3889,7 @@ export function DailyChecklist({
                       <input
                         type="number"
                         min={1}
+                        max={tadarusAyatLimit || undefined}
                         value={tadarusReportForm.ayatTo}
                         onChange={(e) =>
                           setTadarusReportForm((prev) => {
@@ -3931,7 +4050,9 @@ export function DailyChecklist({
                   Tutup
                 </button>
               </div>
-            ) : activePilarMission.code === "ZAKAT_FITRAH" ? (
+            ) : activePilarMission.code === "ZAKAT_FITRAH" ||
+              activePilarMission.code === "INFAQ_SHADAQAH" ||
+              activePilarMission.code === "TAKZIAH_ZIARAH" ? (
               <div className="mt-4">
                 <button
                   type="button"

@@ -57,17 +57,18 @@ export async function calculateDailyXp(params: {
   sunnahBoost: number;
   prayerReports?: PrayerReports;
   murajaahXpBonus?: number;
+  fikihXpBonus?: number;
   tadarusReport?: TadarusReport;
 }) {
   const selected = params.selectedMissionIds.length
     ? await db
-      .select({
-        id: missions.id,
-        xp: missions.xp,
-        code: missions.code,
-      })
-      .from(missions)
-      .where(and(eq(missions.active, true)))
+        .select({
+          id: missions.id,
+          xp: missions.xp,
+          code: missions.code,
+        })
+        .from(missions)
+        .where(and(eq(missions.active, true)))
     : [];
 
   const chosen = selected.filter((m) =>
@@ -96,9 +97,16 @@ export async function calculateDailyXp(params: {
     0,
     Math.min(500, params.murajaahXpBonus || 0),
   );
+  const fikihXpBonus = Math.max(0, Math.min(1000, params.fikihXpBonus || 0));
 
   return {
-    xpGained: baseXp + bonusXp + sunnahBoost + prayerXp + murajaahXpBonus,
+    xpGained:
+      baseXp +
+      bonusXp +
+      sunnahBoost +
+      prayerXp +
+      murajaahXpBonus +
+      fikihXpBonus,
     bonusXp,
     prayerXp,
     tadarusXp,

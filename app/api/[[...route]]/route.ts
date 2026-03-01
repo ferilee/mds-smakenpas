@@ -368,6 +368,7 @@ const reportSchema = z.object({
     })
     .default({}),
   murajaahXpBonus: z.number().int().min(0).max(500).default(0),
+  fikihXpBonus: z.number().int().min(0).max(1000).default(0),
   tadarusReport: z
     .object({
       surahName: z.string().trim().min(1).max(140),
@@ -393,6 +394,16 @@ const reportSchema = z.object({
       date: z.string().max(30),
       form: z.enum(["Beras", "Uang"]),
       amount: z.string().max(120),
+    })
+    .optional(),
+  infaqShadaqahReport: z
+    .object({
+      amount: z.string().trim().min(1).max(120),
+    })
+    .optional(),
+  takziahZiarahReport: z
+    .object({
+      purpose: z.string().trim().min(1).max(500),
     })
     .optional(),
   silaturahimReport: z
@@ -569,6 +580,10 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
     payload.silaturahimHistory ||
     existingReport?.answers?.silaturahimHistory ||
     [];
+  const infaqShadaqahReport =
+    payload.infaqShadaqahReport || existingReport?.answers?.infaqShadaqahReport;
+  const takziahZiarahReport =
+    payload.takziahZiarahReport || existingReport?.answers?.takziahZiarahReport;
 
   await db
     .insert(dailyReports)
@@ -586,9 +601,12 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
         checklistTimestamps: normalizedChecklistTimestamps,
         prayerReportTimestamps: payload.prayerReportTimestamps,
         murajaahXpBonus: payload.murajaahXpBonus,
+        fikihXpBonus: payload.fikihXpBonus,
         tadarusReport: payload.tadarusReport,
         idulfitriReport: payload.idulfitriReport,
         zakatFitrah: payload.zakatFitrah,
+        infaqShadaqahReport,
+        takziahZiarahReport,
         silaturahimReport: payload.silaturahimReport,
         silaturahimHistory,
         kultumReport: normalizedKultumReport,
@@ -608,9 +626,12 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
           checklistTimestamps: normalizedChecklistTimestamps,
           prayerReportTimestamps: payload.prayerReportTimestamps,
           murajaahXpBonus: payload.murajaahXpBonus,
+          fikihXpBonus: payload.fikihXpBonus,
           tadarusReport: payload.tadarusReport,
           idulfitriReport: payload.idulfitriReport,
           zakatFitrah: payload.zakatFitrah,
+          infaqShadaqahReport,
+          takziahZiarahReport,
           silaturahimReport: payload.silaturahimReport,
           silaturahimHistory,
           kultumReport: normalizedKultumReport,

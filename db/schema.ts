@@ -88,6 +88,7 @@ export const dailyReports = pgTable(
           Record<"Subuh" | "Dzuhur" | "Ashar" | "Maghrib" | "Isya", string>
         >;
         murajaahXpBonus?: number;
+        fikihXpBonus?: number;
         tadarusReport?: {
           surahName: string;
           ayatFrom: number;
@@ -105,6 +106,12 @@ export const dailyReports = pgTable(
           date: string;
           form: "Beras" | "Uang";
           amount: string;
+        };
+        infaqShadaqahReport?: {
+          amount: string;
+        };
+        takziahZiarahReport?: {
+          purpose: string;
         };
         silaturahimReport?: {
           teacherName: string;
