@@ -723,10 +723,14 @@ function BottomNavIcon({ label }: { label: string }) {
 
 type DailyChecklistProps = {
   initialShowPrayerPanel?: boolean;
+  readOnly?: boolean;
+  previewStudentId?: string;
 };
 
 export function DailyChecklist({
   initialShowPrayerPanel = false,
+  readOnly = false,
+  previewStudentId = "",
 }: DailyChecklistProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -1049,9 +1053,13 @@ export function DailyChecklist({
 
   useEffect(() => {
     const load = async () => {
+      const reportUrl =
+        readOnly && previewStudentId
+          ? `/api/reports/today?studentId=${encodeURIComponent(previewStudentId)}`
+          : "/api/reports/today";
       const [mRes, tRes, cRes, vRes, fRes] = await Promise.all([
         fetch("/api/missions", { cache: "no-store" }),
-        fetch("/api/reports/today", { cache: "no-store" }),
+        fetch(reportUrl, { cache: "no-store" }),
         fetch(`/api/sholat/cities?keyword=${DEFAULT_CITY_KEYWORD}`, {
           cache: "no-store",
         }),
@@ -1076,7 +1084,9 @@ export function DailyChecklist({
           fastingPromptValueKey,
         );
         const hasDailyReport = Boolean(tData.report?.answers);
-        if (!hasDailyReport) {
+        if (readOnly) {
+          setShouldShowDelayedFastingPrompt(false);
+        } else if (!hasDailyReport) {
           setShouldShowDelayedFastingPrompt(!storedFastingValue);
         } else {
           setShouldShowDelayedFastingPrompt(false);
@@ -1125,6 +1135,16 @@ export function DailyChecklist({
                     (v: number) => Number.isInteger(v) && v >= 78 && v <= 114,
                   )
               : [],
+          );
+          setMurajaahDoneCount(
+            Array.isArray(tData.report.answers.murajaahSurahNumbers)
+              ? tData.report.answers.murajaahSurahNumbers.filter(
+                  (v: unknown) =>
+                    Number.isInteger(Number(v)) &&
+                    Number(v) >= 78 &&
+                    Number(v) <= 114,
+                ).length
+              : 0,
           );
           setMurajaahSurahTimestamps(
             tData.report.answers.murajaahSurahTimestamps &&
@@ -1259,7 +1279,7 @@ export function DailyChecklist({
     };
 
     void load();
-  }, []);
+  }, [previewStudentId, readOnly]);
 
   useEffect(() => {
     setFikihSummaries((prev) => {
@@ -1273,6 +1293,7 @@ export function DailyChecklist({
   }, [fikihRamadanTopics]);
 
   useEffect(() => {
+    if (readOnly) return;
     const syncMurajaahProgress = () => {
       const raw = window.localStorage.getItem(MURAJAAH_STORAGE_KEY);
       const rawTs = window.localStorage.getItem(MURAJAAH_TS_STORAGE_KEY);
@@ -1332,7 +1353,7 @@ export function DailyChecklist({
       window.removeEventListener("focus", syncMurajaahProgress);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  }, [readOnly]);
 
   useEffect(() => {
     if (!reportDateKey) return;
@@ -1599,6 +1620,7 @@ export function DailyChecklist({
   };
 
   const pickFastingStatus = (value: boolean) => {
+    if (readOnly) return;
     setFasting(value);
     if (reportDateKey) {
       window.localStorage.setItem(
@@ -2533,7 +2555,9 @@ export function DailyChecklist({
         src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"
         strategy="afterInteractive"
       />
-      <div className="space-y-4">
+      <div
+        className={`space-y-4 ${readOnly ? "pointer-events-none select-none opacity-90" : ""}`}
+      >
         {showPrayerPanel ? (
           <section className="overflow-hidden rounded-[28px] border border-slate-200/80 bg-white/95 p-4 shadow-lg shadow-slate-200/60 backdrop-blur sm:p-5 dark:border-slate-700 dark:bg-slate-900/70 dark:shadow-slate-950/40">
             <div className="mb-3 flex items-center justify-between">

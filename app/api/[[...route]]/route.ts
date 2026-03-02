@@ -442,23 +442,56 @@ const reportSchema = z.object({
     .optional(),
 });
 
-app.get("/reports/today", async (c) => {
-  const me = c.get("user");
-  const reportDate = todayDateString();
-  const report = await db.query.dailyReports.findFirst({
-    where: and(
-      eq(dailyReports.userId, me.id),
-      eq(dailyReports.reportDate, reportDate),
-    ),
-  });
-  return c.json({
-    reportDate,
-    report,
-  });
-});
+app.get(
+  "/reports/today",
+  zValidator(
+    "query",
+    z.object({
+      studentId: z.string().optional(),
+    }),
+  ),
+  async (c) => {
+    const me = c.get("user");
+    const { studentId } = c.req.valid("query");
+    let targetUserId = me.id;
+    if (studentId && studentId !== me.id) {
+      const meRecord = await db.query.users.findFirst({
+        where: eq(users.id, me.id),
+      });
+      if (meRecord?.role !== "guru" && meRecord?.role !== "admin") {
+        return c.json({ message: "Forbidden" }, 403);
+      }
+      targetUserId = studentId;
+    }
+    const reportDate = todayDateString();
+    const report = await db.query.dailyReports.findFirst({
+      where: and(
+        eq(dailyReports.userId, targetUserId),
+        eq(dailyReports.reportDate, reportDate),
+      ),
+    });
+    return c.json({
+      reportDate,
+      targetUserId,
+      report,
+    });
+  },
+);
 
 app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
   const me = c.get("user");
+  const meRecord = await db.query.users.findFirst({
+    where: eq(users.id, me.id),
+  });
+  if (meRecord?.role === "guru" || meRecord?.role === "admin") {
+    return c.json(
+      {
+        message:
+          "Mode baca saja. Akun guru/admin tidak dapat mengisi checklist siswa.",
+      },
+      403,
+    );
+  }
   const payload = c.req.valid("json");
   const reportDate = todayDateString();
 

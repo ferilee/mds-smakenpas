@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
+import { GuruBottomNav } from "@/components/guru-bottom-nav";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { GuruFilterForm } from "@/components/guru-filter-form";
 import { dailyReports, missions, users, type DailyReport } from "@/db/schema";
@@ -264,7 +265,10 @@ export default async function GuruAnalyticsPage({
     },
     {
       title: "Manajemen",
-      items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
+      items: [
+        { label: "Kultum", href: "/guru/kultum" },
+        { label: "Materi Fikih", href: "/guru/fikih" },
+      ],
     },
     {
       title: "Akses",
@@ -471,6 +475,7 @@ export default async function GuruAnalyticsPage({
           </section>
         </div>
       </div>
+      <GuruBottomNav />
     </main>
   );
 }

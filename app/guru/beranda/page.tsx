@@ -1,7 +1,9 @@
 import Link from "next/link";
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
+import { GuruBottomNav } from "@/components/guru-bottom-nav";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { GuruFilterForm } from "@/components/guru-filter-form";
 import { dailyReports, users, type DailyReport } from "@/db/schema";
@@ -196,7 +198,10 @@ export default async function GuruBerandaPage({
     },
     {
       title: "Manajemen",
-      items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
+      items: [
+        { label: "Kultum", href: "/guru/kultum" },
+        { label: "Materi Fikih", href: "/guru/fikih" },
+      ],
     },
     {
       title: "Akses",
@@ -304,11 +309,17 @@ export default async function GuruBerandaPage({
                   description: "Kelola video kultum untuk siswa.",
                   href: "/guru/kultum",
                 },
+                {
+                  title: "Lihat Dashboard Siswa (Read Only)",
+                  description:
+                    "Preview fitur siswa tanpa harus login sebagai siswa.",
+                  href: "/dashboard?preview=siswa",
+                },
               ] as const
             ).map((item) => (
               <Link
                 key={item.title}
-                href={item.href}
+                href={item.href as Route}
                 className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
               >
                 <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -371,6 +382,7 @@ export default async function GuruBerandaPage({
           </section>
         </div>
       </div>
+      <GuruBottomNav />
     </main>
   );
 }

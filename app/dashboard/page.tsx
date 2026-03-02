@@ -6,6 +6,7 @@ import { FastingConfirmationIndicator } from "@/components/fasting-confirmation-
 import { ProfileInfoModal } from "@/components/profile-info-modal";
 import { AccountLockModal } from "@/components/account-lock-modal";
 import { DeveloperInfoButton } from "@/components/developer-info-button";
+import { GuruBottomNav } from "@/components/guru-bottom-nav";
 import { PabpProfilesButton } from "@/components/pabp-profiles-button";
 import { ProgressCards } from "@/components/progress-cards";
 import { PwaInstallButton } from "@/components/pwa-install-button";
@@ -15,12 +16,14 @@ import { UserAvatar } from "@/components/user-avatar";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { dailyReports, users } from "@/db/schema";
-import { and, eq, gte, lte } from "drizzle-orm";
+import { and, asc, eq, gte, lte, or } from "drizzle-orm";
 import { computeLevel } from "@/lib/xp";
 
 type DashboardPageProps = {
   searchParams?: Promise<{
     panel?: string;
+    preview?: string;
+    studentId?: string;
   }>;
 };
 
@@ -42,11 +45,13 @@ export default async function DashboardPage({
 }: DashboardPageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const isPrayerPanelOpen = resolvedSearchParams?.panel === "prayer";
+  const isGuruPreview = resolvedSearchParams?.preview === "siswa";
+  const selectedStudentId = resolvedSearchParams?.studentId || "";
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const role = session.user.role;
   if (role === "admin") redirect("/admin/beranda" as Route);
-  if (role === "guru") redirect("/guru/beranda" as Route);
+  if (role === "guru" && !isGuruPreview) redirect("/guru/beranda" as Route);
 
   const user = await db.query.users.findFirst({
     where: eq(users.id, session.user.id),
@@ -62,8 +67,30 @@ export default async function DashboardPage({
     return <AccountLockModal />;
   }
 
-  const levelInfo = computeLevel(user.totalXp);
-  const profileImage = user.image ?? session.user.image ?? null;
+  const previewStudents = isGuruPreview
+    ? await db
+        .select({
+          id: users.id,
+          name: users.name,
+          email: users.email,
+          image: users.image,
+          classroom: users.classroom,
+          totalXp: users.totalXp,
+          currentStreak: users.currentStreak,
+        })
+        .from(users)
+        .where(or(eq(users.role, "siswa"), eq(users.role, "user")))
+        .orderBy(asc(users.classroom), asc(users.name))
+    : [];
+  const previewTarget =
+    isGuruPreview && previewStudents.length
+      ? previewStudents.find((student) => student.id === selectedStudentId) ||
+        previewStudents[0]
+      : null;
+  const dashboardUser = previewTarget || user;
+
+  const levelInfo = computeLevel(dashboardUser.totalXp);
+  const profileImage = dashboardUser.image ?? session.user.image ?? null;
   const now = new Date();
   const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const dayIndex = todayLocal.getDay();
@@ -100,7 +127,7 @@ export default async function DashboardPage({
     .from(dailyReports)
     .where(
       and(
-        eq(dailyReports.userId, user.id),
+        eq(dailyReports.userId, dashboardUser.id),
         gte(dailyReports.reportDate, toDateKey(monday)),
         lte(dailyReports.reportDate, toDateKey(sunday)),
       ),
@@ -128,30 +155,30 @@ export default async function DashboardPage({
       <header className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div>
           <p className="text-sm text-slate-600 dark:text-slate-300">
-            Assalamualaikum,
+            {isGuruPreview ? "Preview dashboard siswa" : "Assalamualaikum,"}
           </p>
           <div className="mt-1 flex items-center gap-2">
             <UserAvatar
-              name={user.name}
+              name={dashboardUser.name}
               image={profileImage}
               className="h-9 w-9"
               textClassName="text-xs"
             />
             <h1 className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
-              {user.name}
+              {dashboardUser.name}
             </h1>
-            <FastingConfirmationIndicator />
+            {!isGuruPreview ? <FastingConfirmationIndicator /> : null}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ProfileInfoModal
-            name={user.name}
-            email={user.email}
-            classroom={user.classroom}
+            name={dashboardUser.name}
+            email={dashboardUser.email}
+            classroom={dashboardUser.classroom}
             image={profileImage}
-            totalXp={user.totalXp}
+            totalXp={dashboardUser.totalXp}
             level={levelInfo.level}
-            streak={user.currentStreak}
+            streak={dashboardUser.currentStreak}
           />
           <ThemeToggle />
           <Link
@@ -252,10 +279,52 @@ export default async function DashboardPage({
       </header>
 
       <ProgressCards
-        totalXp={user.totalXp}
+        totalXp={dashboardUser.totalXp}
         level={levelInfo.level}
-        streak={user.currentStreak}
+        streak={dashboardUser.currentStreak}
       />
+      {isGuruPreview ? (
+        <>
+          <section className="mt-4 rounded-2xl border border-amber-300/60 bg-amber-50/95 px-4 py-3 text-sm text-amber-800 dark:border-amber-300/35 dark:bg-amber-100/10 dark:text-amber-100">
+            Mode baca dashboard siswa untuk guru aktif. Checklist dan aksi input
+            dinonaktifkan.
+          </section>
+          <section className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
+            <form className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <input type="hidden" name="preview" value="siswa" />
+              <label className="text-xs text-slate-600 dark:text-slate-300">
+                Pilih Siswa
+                <select
+                  name="studentId"
+                  defaultValue={dashboardUser.id}
+                  className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                >
+                  {previewStudents.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}{" "}
+                      {student.classroom ? `- ${student.classroom}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-end gap-2">
+                <button
+                  type="submit"
+                  className="h-10 rounded-lg bg-brand-600 px-4 text-sm font-semibold text-white hover:bg-brand-700"
+                >
+                  Lihat
+                </button>
+                <Link
+                  href={"/guru/beranda" as Route}
+                  className="inline-flex h-10 items-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Kembali
+                </Link>
+              </div>
+            </form>
+          </section>
+        </>
+      ) : null}
 
       <section className="mt-5 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -307,7 +376,11 @@ export default async function DashboardPage({
               </div>
             </div>
           </article>
-          <DailyChecklist initialShowPrayerPanel={isPrayerPanelOpen} />
+          <DailyChecklist
+            initialShowPrayerPanel={isPrayerPanelOpen}
+            readOnly={isGuruPreview}
+            previewStudentId={isGuruPreview ? dashboardUser.id : ""}
+          />
         </div>
 
         <div className="hidden space-y-4 lg:block">
@@ -323,6 +396,7 @@ export default async function DashboardPage({
           </article>
         </div>
       </section>
+      {isGuruPreview ? <GuruBottomNav /> : null}
     </main>
   );
 }

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
+import { GuruBottomNav } from "@/components/guru-bottom-nav";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { VideoManagement } from "@/components/video-management";
 import { auth } from "@/lib/auth";
@@ -22,7 +23,10 @@ export default async function GuruKultumPage() {
     },
     {
       title: "Manajemen",
-      items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
+      items: [
+        { label: "Kultum", href: "/guru/kultum" },
+        { label: "Materi Fikih", href: "/guru/fikih" },
+      ],
     },
     {
       title: "Akses",
@@ -67,6 +71,7 @@ export default async function GuruKultumPage() {
           <VideoManagement />
         </div>
       </div>
+      <GuruBottomNav />
     </main>
   );
 }

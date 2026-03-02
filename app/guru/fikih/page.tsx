@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
+import { GuruBottomNav } from "@/components/guru-bottom-nav";
 import { DashboardSidebar } from "@/components/dashboard-sidebar";
 import { GuruFikihManagement } from "@/components/guru-fikih-management";
 import { auth } from "@/lib/auth";
@@ -70,6 +71,7 @@ export default async function GuruFikihPage() {
           <GuruFikihManagement />
         </div>
       </div>
+      <GuruBottomNav />
     </main>
   );
 }
