@@ -58,6 +58,60 @@ function shiftDate(dateString: string, deltaDays: number) {
   }
 }
 
+function ActionMenuIcon({
+  kind,
+}: {
+  kind: "monitoring" | "analytics" | "kultum" | "preview";
+}) {
+  const cls = "h-5 w-5";
+  if (kind === "monitoring") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        className={cls}
+      >
+        <path strokeWidth="2" strokeLinecap="round" d="M4 19h16" />
+        <path strokeWidth="2" strokeLinecap="round" d="M7 16V9m5 7V5m5 11v-8" />
+      </svg>
+    );
+  }
+  if (kind === "analytics") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        className={cls}
+      >
+        <path strokeWidth="2" strokeLinecap="round" d="M4 17l5-5 3 3 6-7" />
+        <path strokeWidth="2" strokeLinecap="round" d="M4 20h16" />
+      </svg>
+    );
+  }
+  if (kind === "kultum") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        className={cls}
+      >
+        <rect x="3" y="5" width="18" height="14" rx="2.5" strokeWidth="2" />
+        <path strokeWidth="2" strokeLinecap="round" d="m10 9 5 3-5 3V9Z" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" className={cls}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" strokeWidth="2" />
+      <circle cx="9" cy="12" r="1.6" fill="currentColor" />
+      <path strokeWidth="2" strokeLinecap="round" d="M13 12h5" />
+    </svg>
+  );
+}
+
 export default async function GuruBerandaPage({
   searchParams,
 }: GuruBerandaPageProps) {
@@ -256,7 +310,7 @@ export default async function GuruBerandaPage({
             />
           </section>
 
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
               <p className="text-xs text-slate-500 dark:text-slate-400">
                 Siswa Aktif
@@ -291,45 +345,99 @@ export default async function GuruBerandaPage({
             </article>
           </section>
 
-          <section className="mt-5 grid gap-4 lg:grid-cols-3">
-            {(
-              [
-                {
-                  title: "Monitoring Kelas",
-                  description: "Pantau aktivitas harian dan detail siswa.",
-                  href: "/guru/monitoring",
-                },
-                {
-                  title: "Analitik & Risiko",
-                  description: "Lihat tren dan siswa yang perlu perhatian.",
-                  href: "/guru/analytics",
-                },
-                {
-                  title: "Video Kultum",
-                  description: "Kelola video kultum untuk siswa.",
-                  href: "/guru/kultum",
-                },
-                {
-                  title: "Lihat Dashboard Siswa (Read Only)",
-                  description:
-                    "Preview fitur siswa tanpa harus login sebagai siswa.",
-                  href: "/dashboard?preview=siswa",
-                },
-              ] as const
-            ).map((item) => (
-              <Link
-                key={item.title}
-                href={item.href as Route}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-brand-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900/60"
-              >
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                  {item.title}
-                </h3>
-                <p className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                  {item.description}
-                </p>
-              </Link>
-            ))}
+          <section className="mt-5">
+            <div className="mb-2">
+              <h2 className="text-sm font-semibold uppercase tracking-[0.12em] text-slate-600 dark:text-slate-300">
+                Menu Aksi Guru
+              </h2>
+              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                Pilih salah satu menu di bawah untuk membuka halaman terkait.
+              </p>
+            </div>
+            <div className="grid gap-3 lg:grid-cols-2">
+              {(
+                [
+                  {
+                    key: "monitoring",
+                    title: "Monitoring Kelas",
+                    description: "Pantau aktivitas harian dan detail siswa.",
+                    href: "/guru/monitoring",
+                    badge: "Utama",
+                  },
+                  {
+                    key: "analytics",
+                    title: "Analitik & Risiko",
+                    description: "Lihat tren dan siswa yang perlu perhatian.",
+                    href: "/guru/analytics",
+                    badge: "Utama",
+                  },
+                  {
+                    key: "kultum",
+                    title: "Video Kultum",
+                    description: "Kelola video kultum untuk siswa.",
+                    href: "/guru/kultum",
+                    badge: "Manajemen",
+                  },
+                  {
+                    key: "preview",
+                    title: "Lihat Dashboard Siswa (Read Only)",
+                    description:
+                      "Preview fitur siswa tanpa harus login sebagai siswa.",
+                    href: "/dashboard?preview=siswa",
+                    badge: "Read Only",
+                  },
+                ] as const
+              ).map((item, idx) => (
+                <Link
+                  key={item.title}
+                  href={item.href as Route}
+                  className="group rounded-2xl border border-slate-200 bg-white p-4 opacity-0 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-md active:scale-[0.99] dark:border-slate-800 dark:bg-slate-900/60 dark:hover:border-brand-700 motion-reduce:opacity-100"
+                  style={{
+                    animation: "islamicFadeIn 480ms ease-out forwards",
+                    animationDelay: `${idx * 90}ms`,
+                  }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-700 ring-1 ring-brand-200 transition group-hover:bg-brand-100 dark:bg-brand-900/40 dark:text-brand-200 dark:ring-brand-700/40">
+                        <ActionMenuIcon kind={item.key} />
+                      </span>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900 transition group-hover:text-brand-700 dark:text-slate-100 dark:group-hover:text-brand-300">
+                            {item.title}
+                          </h3>
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {item.badge}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                          {item.description}
+                        </p>
+                        <span className="mt-2 inline-flex rounded-full border border-brand-200 bg-brand-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-brand-700 dark:border-brand-700/50 dark:bg-brand-900/30 dark:text-brand-200">
+                          Klik untuk buka
+                        </span>
+                      </div>
+                    </div>
+                    <span className="mt-1 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-brand-600 dark:text-slate-500 dark:group-hover:text-brand-300">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="h-5 w-5"
+                        fill="none"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 6l6 6-6 6"
+                        />
+                      </svg>
+                    </span>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </section>
 
           <section className="mt-5 grid gap-4 lg:grid-cols-3">
