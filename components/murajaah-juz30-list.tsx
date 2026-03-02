@@ -217,6 +217,16 @@ export function MurajaahJuz30List() {
     setSavingHafal(true);
     setStatusMessage("");
     const ayatXp = xpFromAyatCount(activeSurah.ayat);
+    const nextChecked = checked.includes(activeSurah.number)
+      ? checked
+      : [...checked, activeSurah.number];
+    const normalizedChecked = Array.from(
+      new Set(
+        nextChecked.filter(
+          (value) => Number.isInteger(value) && value >= 78 && value <= 114,
+        ),
+      ),
+    ).sort((a, b) => a - b);
 
     if (!checked.includes(activeSurah.number)) {
       const clickedAt = new Date().toISOString();
@@ -241,6 +251,38 @@ export function MurajaahJuz30List() {
         ? (report.answers.selectedMissionIds as number[])
         : [];
       const prevMurajaahBonus = Number(report?.answers?.murajaahXpBonus || 0);
+      const prevMurajaahSurahNumbers = Array.isArray(
+        report?.answers?.murajaahSurahNumbers,
+      )
+        ? (report.answers.murajaahSurahNumbers as number[])
+        : [];
+      const prevMurajaahSurahTimestamps =
+        report?.answers?.murajaahSurahTimestamps &&
+        typeof report.answers.murajaahSurahTimestamps === "object"
+          ? (report.answers.murajaahSurahTimestamps as Record<string, string>)
+          : {};
+      const mergedMurajaahSurahNumbers = Array.from(
+        new Set(
+          [...prevMurajaahSurahNumbers, ...normalizedChecked].filter(
+            (value) => Number.isInteger(value) && value >= 78 && value <= 114,
+          ),
+        ),
+      ).sort((a, b) => a - b);
+      const mergedMurajaahSurahTimestamps = mergedMurajaahSurahNumbers.reduce<
+        Record<string, string>
+      >((acc, number) => {
+        const key = String(number);
+        if (hafalTimestamps[number]) {
+          acc[key] = hafalTimestamps[number];
+          return acc;
+        }
+        if (prevMurajaahSurahTimestamps[key]) {
+          acc[key] = prevMurajaahSurahTimestamps[key];
+          return acc;
+        }
+        acc[key] = new Date().toISOString();
+        return acc;
+      }, {});
       const nextMurajaahBonus = prevMurajaahBonus + ayatXp;
 
       const res = await fetch("/api/reports/today", {
@@ -255,6 +297,9 @@ export function MurajaahJuz30List() {
           checklistTimestamps: report?.answers?.checklistTimestamps || {},
           prayerReportTimestamps: report?.answers?.prayerReportTimestamps || {},
           murajaahXpBonus: nextMurajaahBonus,
+          murajaahSurahNumbers: mergedMurajaahSurahNumbers,
+          murajaahSurahTimestamps: mergedMurajaahSurahTimestamps,
+          fikihXpBonus: Number(report?.answers?.fikihXpBonus || 0),
           tadarusReport: report?.answers?.tadarusReport,
           kultumReport: report?.answers?.kultumReport,
           idulfitriReport: report?.answers?.idulfitriReport,

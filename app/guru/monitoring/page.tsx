@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { redirect } from "next/navigation";
-import { and, asc, eq, gte, lte } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lte } from "drizzle-orm";
 import { DashboardBreadcrumbs } from "@/components/dashboard-breadcrumbs";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -42,7 +42,42 @@ type ReportRow = {
   reportDate: string;
   xpGained: number;
   narration: string | null;
+  createdAt: Date;
+  updatedAt: Date;
   answers: DailyReport["answers"];
+};
+
+type ReportSummary = {
+  utama: {
+    hafalan: string;
+    shalatLimaWaktu: string;
+    idulfitri: string;
+    zakatFitrah: string;
+  };
+  sunnah: {
+    tarawih: string;
+    tahajjud: string;
+    dhuha: string;
+    infaqShadaqah: string;
+    takziahZiarah: string;
+    sunnahLainnya: string;
+  };
+  literasi: {
+    tadarus: string;
+    kultum: string;
+    fikihRamadan: string;
+  };
+  akhlak: {
+    silaturahim: string;
+    refleksi: string;
+  };
+  tambahan: {
+    statusPuasa: string;
+    aktivitasChecklist: string;
+    progresShalatWajib: string;
+    waktuLaporTerakhir: string;
+  };
+  narrationOnly: string;
 };
 
 function toDateString(date: Date) {
@@ -123,6 +158,371 @@ function getSilaturahimProof(report: ReportRow | undefined) {
   };
 }
 
+function formatDateTime(value: string | Date | undefined) {
+  if (!value) return "-";
+  try {
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("id-ID", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "Asia/Jakarta",
+    }).format(date);
+  } catch {
+    return "-";
+  }
+}
+
+function getLatestActivityAt(report: ReportRow | undefined) {
+  if (!report) return "-";
+  const checklistTimestamps = Object.values(
+    report.answers?.checklistTimestamps || {},
+  ).filter((value): value is string => typeof value === "string");
+  const prayerTimestamps = Object.values(
+    report.answers?.prayerReportTimestamps || {},
+  ).filter((value): value is string => typeof value === "string");
+  const candidates = [
+    ...checklistTimestamps,
+    ...prayerTimestamps,
+    report.updatedAt.toISOString(),
+    report.createdAt.toISOString(),
+  ];
+  const latestMs = candidates.reduce((max, value) => {
+    const ms = Date.parse(value);
+    if (Number.isNaN(ms)) return max;
+    return Math.max(max, ms);
+  }, 0);
+  if (!latestMs) return "-";
+  return formatDateTime(new Date(latestMs));
+}
+
+const SUNNAH_OTHER_SECTION_LABEL = "Sunnah Lainnya";
+const JUZ30_SURAH_NAMES: Record<number, string> = {
+  78: "An-Naba",
+  79: "An-Nazi'at",
+  80: "Abasa",
+  81: "At-Takwir",
+  82: "Al-Infitar",
+  83: "Al-Mutaffifin",
+  84: "Al-Insyiqaq",
+  85: "Al-Buruj",
+  86: "At-Tariq",
+  87: "Al-A'la",
+  88: "Al-Gasyiyah",
+  89: "Al-Fajr",
+  90: "Al-Balad",
+  91: "Asy-Syams",
+  92: "Al-Lail",
+  93: "Ad-Duha",
+  94: "Asy-Syarh",
+  95: "At-Tin",
+  96: "Al-'Alaq",
+  97: "Al-Qadr",
+  98: "Al-Bayyinah",
+  99: "Az-Zalzalah",
+  100: "Al-'Adiyat",
+  101: "Al-Qari'ah",
+  102: "At-Takasur",
+  103: "Al-'Asr",
+  104: "Al-Humazah",
+  105: "Al-Fil",
+  106: "Quraisy",
+  107: "Al-Ma'un",
+  108: "Al-Kausar",
+  109: "Al-Kafirun",
+  110: "An-Nasr",
+  111: "Al-Lahab",
+  112: "Al-Ikhlas",
+  113: "Al-Falaq",
+  114: "An-Nas",
+};
+
+function formatMurajaahSurahList(
+  value: unknown,
+  timestampMap?: Record<string, string>,
+) {
+  if (!Array.isArray(value)) return "";
+  const numbers = Array.from(
+    new Set(
+      value
+        .map((item) => Number(item))
+        .filter((num) => Number.isInteger(num) && num >= 78 && num <= 114),
+    ),
+  ).sort((a, b) => a - b);
+  if (!numbers.length) return "";
+  return numbers
+    .map((num) => {
+      const label = `QS. ${JUZ30_SURAH_NAMES[num] || num}`;
+      const recordedAt = timestampMap?.[String(num)];
+      if (!recordedAt) return label;
+      return `${label} (${formatDateTime(recordedAt)})`;
+    })
+    .join(" | ");
+}
+
+function splitNarrationSections(raw: string | null | undefined) {
+  const source = (raw || "").trim();
+  if (!source) {
+    return { narrationOnly: "", sunnahNote: "" };
+  }
+
+  const escapedLabel = SUNNAH_OTHER_SECTION_LABEL.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&",
+  );
+  const sectionPattern = new RegExp(
+    `\\[${escapedLabel}\\]\\n([\\s\\S]*?)(?=\\n\\n\\[[^\\]]+\\]\\n|$)`,
+    "g",
+  );
+  let sunnahNote = "";
+  const narrationOnly = source
+    .replace(sectionPattern, (_match, captured: string) => {
+      sunnahNote = captured.trim();
+      return "";
+    })
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return { narrationOnly, sunnahNote };
+}
+
+function hasMissionCode(
+  report: ReportRow | undefined,
+  missionIdByCode: Map<string, number>,
+  code: string,
+) {
+  if (!report) return false;
+  const missionId = missionIdByCode.get(code);
+  if (!missionId) return false;
+  return asArray(report.answers?.selectedMissionIds).includes(missionId);
+}
+
+function summarizeReport(
+  report: ReportRow | undefined,
+  missionIdByCode: Map<string, number>,
+): ReportSummary {
+  const noData = "-";
+  if (!report) {
+    return {
+      utama: {
+        hafalan: noData,
+        shalatLimaWaktu: noData,
+        idulfitri: noData,
+        zakatFitrah: noData,
+      },
+      sunnah: {
+        tarawih: noData,
+        tahajjud: noData,
+        dhuha: noData,
+        infaqShadaqah: noData,
+        takziahZiarah: noData,
+        sunnahLainnya: noData,
+      },
+      literasi: {
+        tadarus: noData,
+        kultum: noData,
+        fikihRamadan: noData,
+      },
+      akhlak: {
+        silaturahim: noData,
+        refleksi: noData,
+      },
+      tambahan: {
+        statusPuasa: noData,
+        aktivitasChecklist: noData,
+        progresShalatWajib: noData,
+        waktuLaporTerakhir: noData,
+      },
+      narrationOnly: "",
+    };
+  }
+
+  const answers = report.answers || {};
+  const prayerEntries = Object.entries(answers.prayerReports || {});
+  const shalatLimaWaktu = prayerEntries.length
+    ? prayerEntries.map(([name, mode]) => `${name} (${mode})`).join(", ")
+    : noData;
+  const idulfitri = answers.idulfitriReport
+    ? `Ya (${answers.idulfitriReport.place || "Lokasi belum diisi"})`
+    : hasMissionCode(report, missionIdByCode, "SHALAT_IDULFITRI")
+      ? "Ya"
+      : noData;
+  const zakatFitrah = answers.zakatFitrah
+    ? `${answers.zakatFitrah.form} ${answers.zakatFitrah.amount || "-"} via ${answers.zakatFitrah.via || "-"}`
+    : hasMissionCode(report, missionIdByCode, "ZAKAT_FITRAH")
+      ? "Ya"
+      : noData;
+  const murajaahXpBonus = Number(answers.murajaahXpBonus || 0);
+  const murajaahSurahTimestamps =
+    answers.murajaahSurahTimestamps &&
+    typeof answers.murajaahSurahTimestamps === "object"
+      ? (answers.murajaahSurahTimestamps as Record<string, string>)
+      : undefined;
+  const murajaahSurahList = formatMurajaahSurahList(
+    answers.murajaahSurahNumbers,
+    murajaahSurahTimestamps,
+  );
+  const hasMurajaahActivity =
+    hasMissionCode(report, missionIdByCode, "HAFALAN_SURAT_PENDEK") ||
+    Boolean(murajaahSurahList) ||
+    murajaahXpBonus > 0;
+  const hafalan = hasMurajaahActivity
+    ? murajaahSurahList
+      ? `${murajaahSurahList} (+${murajaahXpBonus} XP)`
+      : murajaahXpBonus > 0
+        ? `Progres hafalan (+${murajaahXpBonus} XP, surat belum dipilih)`
+        : "Selesai (surat belum dipilih)"
+    : noData;
+
+  const { narrationOnly, sunnahNote } = splitNarrationSections(
+    report.narration,
+  );
+  const sunnahLines = sunnahNote
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const infaqShadaqah = answers.infaqShadaqahReport?.amount
+    ? `Rp ${answers.infaqShadaqahReport.amount}`
+    : hasMissionCode(report, missionIdByCode, "INFAQ_SHADAQAH")
+      ? "Ya"
+      : noData;
+  const takziahZiarah = answers.takziahZiarahReport?.purpose
+    ? answers.takziahZiarahReport.purpose
+    : hasMissionCode(report, missionIdByCode, "TAKZIAH_ZIARAH")
+      ? "Ya"
+      : noData;
+  const sunnahLainnya = sunnahLines.length
+    ? sunnahLines.join(" | ")
+    : hasMissionCode(report, missionIdByCode, "SUNNAH_LAINNYA")
+      ? "Dipilih"
+      : noData;
+
+  const tadarus = answers.tadarusReport
+    ? `${answers.tadarusReport.surahName || "-"} (${answers.tadarusReport.ayatFrom}-${answers.tadarusReport.ayatTo}), ${answers.tadarusReport.totalAyatRead} ayat`
+    : hasMissionCode(report, missionIdByCode, "TADARUS_RAMADAN")
+      ? "Dipilih"
+      : noData;
+  const kultum = answers.kultumReport?.ringkasan
+    ? answers.kultumReport.title || "Ringkasan kultum terisi"
+    : hasMissionCode(report, missionIdByCode, "KULTUM_CERAMAH")
+      ? "Dipilih"
+      : noData;
+  const fikihBonus = Number(answers.fikihXpBonus || 0);
+  const fikihRamadan = fikihBonus > 0 ? `Terlapor (+${fikihBonus} XP)` : noData;
+
+  const silaturahim = answers.silaturahimReport
+    ? `${answers.silaturahimReport.teacherName || "-"} @ ${answers.silaturahimReport.location || "-"}`
+    : hasMissionCode(report, missionIdByCode, "SILATURAHIM") ||
+        hasMissionCode(report, missionIdByCode, "SILATURRAHIM_RAMADAN")
+      ? "Ya"
+      : noData;
+  const refleksi = narrationOnly || noData;
+  const selectedMissionCount = asArray(answers.selectedMissionIds).length;
+  const statusPuasa =
+    typeof answers.fasting === "boolean"
+      ? answers.fasting
+        ? "Berpuasa"
+        : "Tidak berpuasa"
+      : noData;
+  const aktivitasChecklist = `${selectedMissionCount} misi`;
+  const progresShalatWajib = `${prayerEntries.length}/5 waktu`;
+  const waktuLaporTerakhir = getLatestActivityAt(report);
+
+  return {
+    utama: {
+      hafalan,
+      shalatLimaWaktu,
+      idulfitri,
+      zakatFitrah,
+    },
+    sunnah: {
+      tarawih: hasMissionCode(report, missionIdByCode, "SHALAT_TARAWIH")
+        ? "Ya"
+        : noData,
+      tahajjud: hasMissionCode(report, missionIdByCode, "SHALAT_TAHAJJUD")
+        ? "Ya"
+        : noData,
+      dhuha: hasMissionCode(report, missionIdByCode, "SHALAT_DHUHA")
+        ? "Ya"
+        : noData,
+      infaqShadaqah,
+      takziahZiarah,
+      sunnahLainnya,
+    },
+    literasi: {
+      tadarus,
+      kultum,
+      fikihRamadan,
+    },
+    akhlak: {
+      silaturahim,
+      refleksi,
+    },
+    tambahan: {
+      statusPuasa,
+      aktivitasChecklist,
+      progresShalatWajib,
+      waktuLaporTerakhir,
+    },
+    narrationOnly,
+  };
+}
+
+function MiniGauge({
+  value,
+  label,
+  hint,
+  colorClass = "text-brand-600 dark:text-brand-300",
+}: {
+  value: number;
+  label: string;
+  hint: string;
+  colorClass?: string;
+}) {
+  const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+  const radius = 18;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - safeValue / 100);
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 dark:border-slate-700 dark:bg-slate-800/60">
+      <svg viewBox="0 0 48 48" className="h-11 w-11 shrink-0" aria-hidden>
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          className="text-slate-200 dark:text-slate-700"
+          strokeWidth="6"
+        />
+        <circle
+          cx="24"
+          cy="24"
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          className={colorClass}
+          strokeWidth="6"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform="rotate(-90 24 24)"
+        />
+      </svg>
+      <div className="min-w-0">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-500 dark:text-slate-400">
+          {label}
+        </p>
+        <p className={`text-base font-bold leading-tight ${colorClass}`}>
+          {safeValue}%
+        </p>
+        <p className="text-[11px] text-slate-500 dark:text-slate-400">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 export default async function GuruMonitoringPage({
   searchParams,
 }: GuruMonitoringPageProps) {
@@ -181,6 +581,8 @@ export default async function GuruMonitoringPage({
           reportDate: dailyReports.reportDate,
           xpGained: dailyReports.xpGained,
           narration: dailyReports.narration,
+          createdAt: dailyReports.createdAt,
+          updatedAt: dailyReports.updatedAt,
           answers: dailyReports.answers,
         })
         .from(dailyReports)
@@ -222,6 +624,7 @@ export default async function GuruMonitoringPage({
     );
     const reportByUserId = new Map(reportsToday.map((r) => [r.userId, r]));
     const missionTitleMap = new Map(activeMissions.map((m) => [m.id, m.title]));
+    const missionIdByCode = new Map(activeMissions.map((m) => [m.code, m.id]));
     const reportsPrevious = scopedReports.filter(
       (row) => row.reportDate === previousDate,
     );
@@ -268,6 +671,22 @@ export default async function GuruMonitoringPage({
     const selectedStudent =
       students.find((row) => row.id === selectedStudentFromQuery) ||
       students[0];
+    const selectedStudentAllReports: ReportRow[] = selectedStudent
+      ? await db
+          .select({
+            id: dailyReports.id,
+            userId: dailyReports.userId,
+            reportDate: dailyReports.reportDate,
+            xpGained: dailyReports.xpGained,
+            narration: dailyReports.narration,
+            createdAt: dailyReports.createdAt,
+            updatedAt: dailyReports.updatedAt,
+            answers: dailyReports.answers,
+          })
+          .from(dailyReports)
+          .where(eq(dailyReports.userId, selectedStudent.id))
+          .orderBy(desc(dailyReports.reportDate))
+      : [];
 
     const timelineDays = Array.from({ length: 7 }).map((_, idx) =>
       shiftDate(selectedDate, -(6 - idx)),
@@ -294,6 +713,63 @@ export default async function GuruMonitoringPage({
             : selectedStudentSilaturahimProofRaw.photoUrl,
         }
       : null;
+    const selectedStudentSummary = summarizeReport(
+      selectedStudentTodayReport,
+      missionIdByCode,
+    );
+    const selectedStudentWeeklySummary = timelineDays.reduce(
+      (acc, day) => {
+        const report = selectedStudentReportByDate.get(day);
+        if (!report) return acc;
+        acc.daysReported += 1;
+        acc.totalXp += report.xpGained || 0;
+        const prayerCount = Object.keys(
+          report.answers?.prayerReports || {},
+        ).length;
+        if (prayerCount >= 5) acc.fullPrayerDays += 1;
+        if (Number(report.answers?.tadarusReport?.totalAyatRead || 0) > 0) {
+          acc.tadarusDays += 1;
+        }
+        if (
+          hasMissionCode(report, missionIdByCode, "SHALAT_TARAWIH") ||
+          hasMissionCode(report, missionIdByCode, "SHALAT_TAHAJJUD") ||
+          hasMissionCode(report, missionIdByCode, "SHALAT_DHUHA") ||
+          hasMissionCode(report, missionIdByCode, "INFAQ_SHADAQAH") ||
+          hasMissionCode(report, missionIdByCode, "TAKZIAH_ZIARAH") ||
+          hasMissionCode(report, missionIdByCode, "SUNNAH_LAINNYA")
+        ) {
+          acc.sunnahDays += 1;
+        }
+        return acc;
+      },
+      {
+        daysReported: 0,
+        totalXp: 0,
+        fullPrayerDays: 0,
+        tadarusDays: 0,
+        sunnahDays: 0,
+      },
+    );
+    const selectedStudentWeeklyAvgXp = selectedStudentWeeklySummary.daysReported
+      ? Math.round(
+          selectedStudentWeeklySummary.totalXp /
+            selectedStudentWeeklySummary.daysReported,
+        )
+      : 0;
+    const selectedStudentTodayMissionCount = selectedStudentTodayReport
+      ? asArray(selectedStudentTodayReport.answers?.selectedMissionIds).length
+      : 0;
+    const selectedStudentTodayChecklistPercent = activeMissions.length
+      ? Math.round(
+          (selectedStudentTodayMissionCount / activeMissions.length) * 100,
+        )
+      : 0;
+    const selectedStudentWeeklyConsistencyPercent = timelineDays.length
+      ? Math.round(
+          (selectedStudentWeeklySummary.daysReported / timelineDays.length) *
+            100,
+        )
+      : 0;
 
     const shalatSummary = reportsToday.reduce(
       (acc, row) => {
@@ -424,27 +900,92 @@ export default async function GuruMonitoringPage({
       .join("\n");
     const missionCsvHref = `data:text/csv;charset=utf-8,${encodeURIComponent(missionCsv)}`;
 
-    const selectedStudentCsv = selectedStudent
+    const selectedStudentExportHeaders = [
+      "Tanggal",
+      "Misi",
+      "XP",
+      "Utama: Hafalan Surat Pendek",
+      "Utama: Shalat Lima Waktu",
+      "Utama: Shalat Idulfitri",
+      "Utama: Zakat Fitrah",
+      "Sunnah: Tarawih",
+      "Sunnah: Tahajjud",
+      "Sunnah: Dhuha",
+      "Sunnah: Infaq/Shadaqah",
+      "Sunnah: Takziah/Ziarah",
+      "Sunnah: Aktivitas Lain",
+      "Literasi: Tadarus",
+      "Literasi: Kultum",
+      "Literasi: Materi Fikih",
+      "Akhlak: Silaturahim",
+      "Akhlak: Refleksi",
+      "Tambahan: Status Puasa",
+      "Tambahan: Aktivitas Checklist",
+      "Tambahan: Progres Shalat Wajib",
+      "Tambahan: Waktu Lapor Terakhir",
+      "Narasi/Refleksi",
+    ];
+    const buildSelectedStudentExportRow = (day: string, report?: ReportRow) => {
+      const selectedIds = asArray(report?.answers?.selectedMissionIds);
+      const missionNames = selectedIds
+        .map((id) => missionTitleMap.get(id))
+        .filter(Boolean)
+        .join(", ");
+      const summary = summarizeReport(report, missionIdByCode);
+      return [
+        day,
+        missionNames || "-",
+        String(report?.xpGained || 0),
+        summary.utama.hafalan,
+        summary.utama.shalatLimaWaktu,
+        summary.utama.idulfitri,
+        summary.utama.zakatFitrah,
+        summary.sunnah.tarawih,
+        summary.sunnah.tahajjud,
+        summary.sunnah.dhuha,
+        summary.sunnah.infaqShadaqah,
+        summary.sunnah.takziahZiarah,
+        summary.sunnah.sunnahLainnya,
+        summary.literasi.tadarus,
+        summary.literasi.kultum,
+        summary.literasi.fikihRamadan,
+        summary.akhlak.silaturahim,
+        summary.akhlak.refleksi,
+        summary.tambahan.statusPuasa,
+        summary.tambahan.aktivitasChecklist,
+        summary.tambahan.progresShalatWajib,
+        summary.tambahan.waktuLaporTerakhir,
+        report?.narration || "-",
+      ];
+    };
+    const selectedStudentTodayExportData = selectedStudent
       ? [
-          ["Tanggal", "Misi Selesai", "XP Didapat", "Narasi/Refleksi"],
-          ...timelineDays.map((day) => {
-            const report = selectedStudentReportByDate.get(day);
-            const missionCount = report
-              ? asArray(report.answers?.selectedMissionIds).length
-              : 0;
-            return [
-              day,
-              String(missionCount),
-              String(report?.xpGained || 0),
-              report?.narration || "-",
-            ];
-          }),
+          buildSelectedStudentExportRow(
+            selectedDate,
+            selectedStudentReportByDate.get(selectedDate),
+          ),
         ]
+      : [];
+    const selectedStudentAllDaysExportData = selectedStudent
+      ? selectedStudentAllReports.map((row) =>
+          buildSelectedStudentExportRow(row.reportDate, row),
+        )
+      : [];
+    const selectedStudentTodayCsv = selectedStudent
+      ? [selectedStudentExportHeaders, ...selectedStudentTodayExportData]
           .map((line) => line.map(csvEscape).join(","))
           .join("\n")
       : "";
-    const selectedStudentCsvHref = selectedStudent
-      ? `data:text/csv;charset=utf-8,${encodeURIComponent(selectedStudentCsv)}`
+    const selectedStudentAllDaysCsv = selectedStudent
+      ? [selectedStudentExportHeaders, ...selectedStudentAllDaysExportData]
+          .map((line) => line.map(csvEscape).join(","))
+          .join("\n")
+      : "";
+    const selectedStudentTodayCsvHref = selectedStudent
+      ? `data:text/csv;charset=utf-8,${encodeURIComponent(selectedStudentTodayCsv)}`
+      : "";
+    const selectedStudentAllDaysCsvHref = selectedStudent
+      ? `data:text/csv;charset=utf-8,${encodeURIComponent(selectedStudentAllDaysCsv)}`
       : "";
 
     const sidebarGroups = [
@@ -458,7 +999,10 @@ export default async function GuruMonitoringPage({
       },
       {
         title: "Manajemen",
-        items: [{ label: "Kultum", href: "/guru/kultum" }, { label: "Materi Fikih", href: "/guru/fikih" }],
+        items: [
+          { label: "Kultum", href: "/guru/kultum" },
+          { label: "Materi Fikih", href: "/guru/fikih" },
+        ],
       },
       {
         title: "Akses",
@@ -670,356 +1214,487 @@ export default async function GuruMonitoringPage({
               </div>
             </section>
 
-            <section className="mt-5 grid gap-4 lg:grid-cols-2">
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Daftar Siswa
-                  </h2>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <StudentFilter
-                      currentSearch={studentSearchQuery}
-                      currentClassroom={selectedClassroom}
-                      classroomOptions={classroomOptions}
-                      currentMajor={selectedMajor}
-                      currentDate={selectedDate}
+            <section className="mt-5">
+              <div className="mb-2 flex items-center justify-center gap-2 sm:hidden">
+                <a
+                  href="#monitoring-card-1"
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  Kartu 1
+                </a>
+                <a
+                  href="#monitoring-card-2"
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                >
+                  Kartu 2
+                </a>
+              </div>
+              <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0 lg:grid lg:grid-cols-2 lg:overflow-visible">
+                <article
+                  id="monitoring-card-1"
+                  className="min-w-[92vw] snap-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:min-w-0 dark:border-slate-800 dark:bg-slate-900/60"
+                >
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Daftar Siswa
+                    </h2>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StudentFilter
+                        currentSearch={studentSearchQuery}
+                        currentClassroom={selectedClassroom}
+                        classroomOptions={classroomOptions}
+                        currentMajor={selectedMajor}
+                        currentDate={selectedDate}
+                      />
+                      <a
+                        href={monitoringCsvHref}
+                        download={`guru-monitoring-siswa-${selectedDate}.csv`}
+                        className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        CSV
+                      </a>
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <MiniGauge
+                      value={completionPercent}
+                      label="Kelas Isi Checklist"
+                      hint={`${submittedStudents}/${totalStudents} siswa`}
                     />
-                    <a
-                      href={monitoringCsvHref}
-                      download={`guru-monitoring-siswa-${selectedDate}.csv`}
-                      className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      CSV
-                    </a>
                   </div>
-                </div>
-                <div className="mt-3 overflow-x-auto">
-                  <table className="w-full min-w-[500px] text-sm">
-                    <thead>
-                      <tr className="text-left text-slate-500 dark:text-slate-400">
-                        <th className="pb-2 font-semibold">Nama Siswa</th>
-                        <th className="pb-2 font-semibold">Kelas</th>
-                        <th className="pb-2 font-semibold">
-                          Aktivitas Ramadan
-                        </th>
-                        <th className="pb-2 font-semibold text-center">Aksi</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {monitoringPagination.items.map((row) => {
-                        const report = reportsByUserToday.get(row.id);
-                        const answers = report?.answers;
-                        const missionsToday = asArray(
-                          answers?.selectedMissionIds,
-                        )
-                          .map((id) => missionTitleMap.get(id))
-                          .filter(Boolean)
-                          .join(", ");
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="w-full min-w-[500px] text-sm">
+                      <thead>
+                        <tr className="text-left text-slate-500 dark:text-slate-400">
+                          <th className="pb-2 font-semibold">Nama Siswa</th>
+                          <th className="pb-2 font-semibold">Kelas</th>
+                          <th className="pb-2 font-semibold">
+                            Aktivitas Ramadan
+                          </th>
+                          <th className="pb-2 font-semibold text-center">
+                            Aksi
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monitoringPagination.items.map((row) => {
+                          const report = reportsByUserToday.get(row.id);
+                          const answers = report?.answers;
+                          const missionsToday = asArray(
+                            answers?.selectedMissionIds,
+                          )
+                            .map((id) => missionTitleMap.get(id))
+                            .filter(Boolean)
+                            .join(", ");
 
-                        return (
-                          <tr
-                            key={row.id}
-                            className="border-t border-slate-200 dark:border-slate-700"
-                          >
-                            <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">
-                              {row.name}
-                            </td>
-                            <td className="py-2.5 text-slate-600 dark:text-slate-400">
-                              {row.classroom || "Tanpa Kelas"}
-                            </td>
-                            <td className="py-2.5 text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
-                              {missionsToday || (
-                                <span className="text-slate-400 italic font-normal text-xs">
-                                  Belum ada
-                                </span>
-                              )}
-                            </td>
-                            <td className="py-2.5">
-                              <div className="flex items-center justify-center gap-1">
-                                <Link
-                                  href={buildHref({
-                                    classroom: selectedClassroom || undefined,
-                                    date: selectedDate,
-                                    studentId: row.id,
-                                    studentPage: String(
-                                      monitoringPagination.page,
-                                    ),
-                                    riskPage: String(riskPagination.page),
-                                  })}
-                                  className={`p-1.5 rounded-lg transition ${
-                                    selectedStudent?.id === row.id
-                                      ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
-                                      : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                                  }`}
-                                  title="Preview"
-                                >
-                                  <svg
-                                    className="w-4 h-4"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
+                          return (
+                            <tr
+                              key={row.id}
+                              className="border-t border-slate-200 dark:border-slate-700"
+                            >
+                              <td className="py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                                {row.name}
+                              </td>
+                              <td className="py-2.5 text-slate-600 dark:text-slate-400">
+                                {row.classroom || "Tanpa Kelas"}
+                              </td>
+                              <td className="py-2.5 text-slate-600 dark:text-slate-400 max-w-[150px] truncate">
+                                {missionsToday || (
+                                  <span className="text-slate-400 italic font-normal text-xs">
+                                    Belum ada
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2.5">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Link
+                                    href={buildHref({
+                                      classroom: selectedClassroom || undefined,
+                                      date: selectedDate,
+                                      studentId: row.id,
+                                      studentPage: String(
+                                        monitoringPagination.page,
+                                      ),
+                                      riskPage: String(riskPagination.page),
+                                    })}
+                                    className={`p-1.5 rounded-lg transition ${
+                                      selectedStudent?.id === row.id
+                                        ? "bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300"
+                                        : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                                    }`}
+                                    title="Preview"
                                   >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                                    />
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                                    />
-                                  </svg>
-                                </Link>
-                                <PDFExportButton
-                                  title={`Laporan Detail: ${row.name}`}
-                                  subtitle={`${row.classroom || "Tanpa Kelas"} | s/d ${selectedDate}`}
-                                  filename={`laporan-detail-${row.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
-                                  headers={[
-                                    "Tanggal",
-                                    "Misi",
-                                    "XP",
-                                    "Narasi/Refleksi",
-                                  ]}
-                                  data={timelineDays.map((day) => {
-                                    const studentReports = scopedReports.filter(
-                                      (r) => r.userId === row.id,
-                                    );
-                                    const r = studentReports.find(
-                                      (sr) => sr.reportDate === day,
-                                    );
-                                    const selectedIds = asArray(
-                                      r?.answers?.selectedMissionIds,
-                                    );
-                                    const mNames = selectedIds
-                                      .map((id) => missionTitleMap.get(id))
-                                      .filter(Boolean)
-                                      .join(", ");
-                                    return [
-                                      day,
-                                      mNames || "-",
-                                      String(r?.xpGained || 0),
-                                      r?.narration || "-",
-                                    ];
-                                  })}
-                                  buttonLabel=""
-                                  orientation="landscape"
-                                  margin={{
-                                    top: 20,
-                                    left: 20,
-                                    right: 20,
-                                    bottom: 20,
-                                  }}
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {monitoringPagination.totalPages > 1 ? (
-                  <div className="mt-4 flex items-center justify-between text-xs">
-                    <Link
-                      href={buildHref({
-                        classroom: selectedClassroom || undefined,
-                        date: selectedDate,
-                        studentId: selectedStudent?.id,
-                        studentPage: String(
-                          Math.max(1, monitoringPagination.page - 1),
-                        ),
-                        riskPage: String(riskPagination.page),
-                      })}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Sebelumnya
-                    </Link>
-                    <span className="text-slate-500 dark:text-slate-400">
-                      Halaman {monitoringPagination.page}/
-                      {monitoringPagination.totalPages}
-                    </span>
-                    <Link
-                      href={buildHref({
-                        classroom: selectedClassroom || undefined,
-                        date: selectedDate,
-                        studentId: selectedStudent?.id,
-                        studentPage: String(
-                          Math.min(
-                            monitoringPagination.totalPages,
-                            monitoringPagination.page + 1,
+                                    <svg
+                                      className="w-4 h-4"
+                                      fill="none"
+                                      viewBox="0 0 24 24"
+                                      stroke="currentColor"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                      />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                      />
+                                    </svg>
+                                  </Link>
+                                  <PDFExportButton
+                                    title={`Laporan Detail: ${row.name}`}
+                                    subtitle={`${row.classroom || "Tanpa Kelas"} | s/d ${selectedDate}`}
+                                    filename={`laporan-detail-${row.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
+                                    headers={selectedStudentExportHeaders}
+                                    data={timelineDays.map((day) => {
+                                      const studentReports =
+                                        scopedReports.filter(
+                                          (r) => r.userId === row.id,
+                                        );
+                                      const rowReport = studentReports.find(
+                                        (studentReport) =>
+                                          studentReport.reportDate === day,
+                                      );
+                                      return buildSelectedStudentExportRow(
+                                        day,
+                                        rowReport,
+                                      );
+                                    })}
+                                    buttonLabel=""
+                                    orientation="landscape"
+                                    margin={{
+                                      top: 20,
+                                      left: 20,
+                                      right: 20,
+                                      bottom: 20,
+                                    }}
+                                  />
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {monitoringPagination.totalPages > 1 ? (
+                    <div className="mt-4 flex items-center justify-between text-xs">
+                      <Link
+                        href={buildHref({
+                          classroom: selectedClassroom || undefined,
+                          date: selectedDate,
+                          studentId: selectedStudent?.id,
+                          studentPage: String(
+                            Math.max(1, monitoringPagination.page - 1),
                           ),
-                        ),
-                        riskPage: String(riskPagination.page),
-                      })}
-                      className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                    >
-                      Berikutnya
-                    </Link>
-                  </div>
-                ) : null}
-              </article>
+                          riskPage: String(riskPagination.page),
+                        })}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Sebelumnya
+                      </Link>
+                      <span className="text-slate-500 dark:text-slate-400">
+                        Halaman {monitoringPagination.page}/
+                        {monitoringPagination.totalPages}
+                      </span>
+                      <Link
+                        href={buildHref({
+                          classroom: selectedClassroom || undefined,
+                          date: selectedDate,
+                          studentId: selectedStudent?.id,
+                          studentPage: String(
+                            Math.min(
+                              monitoringPagination.totalPages,
+                              monitoringPagination.page + 1,
+                            ),
+                          ),
+                          riskPage: String(riskPagination.page),
+                        })}
+                        className="rounded-md border border-slate-300 px-2 py-1 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Berikutnya
+                      </Link>
+                    </div>
+                  ) : null}
+                </article>
 
-              <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/60">
-                <div className="flex items-center justify-between gap-2">
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                    Detail Siswa Terpilih
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    {selectedStudent && (
-                      <>
-                        <a
-                          href={selectedStudentCsvHref}
-                          download={`laporan-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}-${selectedDate}.csv`}
-                          className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-                        >
-                          CSV
-                        </a>
-                        <PDFExportButton
-                          title={`Laporan Detail: ${selectedStudent.name}`}
-                          subtitle={`${selectedStudent.classroom || "Tanpa Kelas"} | ${selectedStudent.major || "Tanpa Jurusan"} | s/d ${selectedDate}`}
-                          filename={`laporan-detail-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
-                          headers={["Tanggal", "Misi", "XP", "Narasi/Refleksi"]}
-                          data={timelineDays.map((day) => {
-                            const report = selectedStudentReportByDate.get(day);
-                            const selectedIds = asArray(
-                              report?.answers?.selectedMissionIds,
-                            );
-                            const missionNames = selectedIds
-                              .map((id) => missionTitleMap.get(id))
-                              .filter(Boolean)
-                              .join(", ");
-                            return [
-                              day,
-                              missionNames || "-",
-                              String(report?.xpGained || 0),
-                              report?.narration || "-",
-                            ];
-                          })}
-                          buttonLabel="PDF"
-                        />
-                      </>
-                    )}
-                  </div>
-                </div>
-                {selectedStudent ? (
-                  <div className="mt-3 space-y-3">
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        {selectedStudent.name}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {selectedStudent.classroom || "Tanpa kelas"} • total{" "}
-                        {selectedStudent.totalXp} XP • streak{" "}
-                        {selectedStudent.currentStreak} hari
-                      </p>
-                    </div>
-                    <div className="space-y-1">
-                      {timelineDays.map((day) => {
-                        const report = selectedStudentReportByDate.get(day);
-                        const selectedMissionCount = report
-                          ? asArray(report.answers?.selectedMissionIds).length
-                          : 0;
-                        return (
-                          <div
-                            key={day}
-                            className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
-                          >
-                            <span className="text-slate-600 dark:text-slate-300">
-                              {day}
-                            </span>
-                            <span className="text-slate-700 dark:text-slate-200">
-                              {report
-                                ? `${selectedMissionCount} misi • +${report.xpGained} XP`
-                                : "Belum isi"}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
-                      <p>
-                        Shalat terlapor:{" "}
-                        {
-                          Object.keys(
-                            selectedStudentTodayReport?.answers
-                              ?.prayerReports || {},
-                          ).length
-                        }
-                      </p>
-                      <p>
-                        Tadarus hari ini:{" "}
-                        {selectedStudentTodayReport?.answers?.tadarusReport
-                          ?.totalAyatRead || 0}{" "}
-                        ayat
-                      </p>
-                      <p>
-                        Kultum:{" "}
-                        {selectedStudentTodayReport?.answers?.kultumReport
-                          ?.ringkasan
-                          ? "Sudah"
-                          : "Belum"}
-                      </p>
-                      <p>
-                        Refleksi:{" "}
-                        {selectedStudentTodayReport?.narration?.trim()
-                          ? "Sudah"
-                          : "Belum"}
-                      </p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
-                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        Bukti Silaturahim (Hari Ini)
-                      </p>
-                      {selectedStudentSilaturahimProof?.photoUrl ? (
-                        <div className="mt-2 space-y-2">
-                          <img
-                            src={selectedStudentSilaturahimProof.photoUrl}
-                            alt={`Bukti silaturahim ${selectedStudent.name}`}
-                            className="h-44 w-full rounded-lg border border-slate-200 object-cover dark:border-slate-700"
-                          />
-                          <p>
-                            Tujuan:{" "}
-                            <span className="font-semibold">
-                              {selectedStudentSilaturahimProof.teacherName ||
-                                "-"}
-                            </span>{" "}
-                            — {selectedStudentSilaturahimProof.location || "-"}
-                          </p>
-                          <p>
-                            Waktu:{" "}
-                            {selectedStudentSilaturahimProof.recordedAt ||
-                              selectedDate}
-                          </p>
-                          <p>
-                            Catatan:{" "}
-                            {selectedStudentSilaturahimProof.lessonSummary ||
-                              "-"}
-                          </p>
+                <article
+                  id="monitoring-card-2"
+                  className="min-w-[92vw] snap-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:min-w-0 dark:border-slate-800 dark:bg-slate-900/60"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Detail Siswa Terpilih
+                    </h2>
+                    <div className="flex items-center gap-2">
+                      {selectedStudent && (
+                        <>
                           <a
-                            href={selectedStudentSilaturahimProof.photoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            href={selectedStudentTodayCsvHref}
+                            download={`laporan-hari-ini-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}-${selectedDate}.csv`}
+                            className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
-                            Buka Foto
+                            CSV Hari Ini
                           </a>
-                        </div>
-                      ) : (
-                        <p className="mt-2 text-slate-500 dark:text-slate-400">
-                          Belum ada foto bukti silaturahim untuk hari ini.
-                        </p>
+                          <a
+                            href={selectedStudentAllDaysCsvHref}
+                            download={`laporan-semua-hari-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}.csv`}
+                            className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                          >
+                            CSV Semua Hari
+                          </a>
+                          <PDFExportButton
+                            title={`Laporan Hari Ini: ${selectedStudent.name}`}
+                            subtitle={`${selectedStudent.classroom || "Tanpa Kelas"} | ${selectedStudent.major || "Tanpa Jurusan"} | ${selectedDate}`}
+                            filename={`laporan-hari-ini-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
+                            headers={selectedStudentExportHeaders}
+                            data={selectedStudentTodayExportData}
+                            buttonLabel="PDF Hari Ini"
+                          />
+                          <PDFExportButton
+                            title={`Laporan Semua Hari: ${selectedStudent.name}`}
+                            subtitle={`${selectedStudent.classroom || "Tanpa Kelas"} | ${selectedStudent.major || "Tanpa Jurusan"} | total ${selectedStudentAllReports.length} hari`}
+                            filename={`laporan-semua-hari-${selectedStudent.name.toLowerCase().replace(/\s+/g, "-")}.pdf`}
+                            headers={selectedStudentExportHeaders}
+                            data={selectedStudentAllDaysExportData}
+                            buttonLabel="PDF Semua Hari"
+                          />
+                        </>
                       )}
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
-                    Tidak ada siswa pada filter ini.
-                  </p>
-                )}
-              </article>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <MiniGauge
+                      value={selectedStudentTodayChecklistPercent}
+                      label="Checklist Hari Ini"
+                      hint={`${selectedStudentTodayMissionCount}/${Math.max(
+                        activeMissions.length,
+                        1,
+                      )} misi`}
+                    />
+                    <MiniGauge
+                      value={selectedStudentWeeklyConsistencyPercent}
+                      label="Konsistensi 7 Hari"
+                      hint={`${selectedStudentWeeklySummary.daysReported}/${timelineDays.length} hari`}
+                      colorClass="text-emerald-600 dark:text-emerald-300"
+                    />
+                  </div>
+                  {selectedStudent ? (
+                    <div className="mt-3 space-y-3">
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/60">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          {selectedStudent.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {selectedStudent.classroom || "Tanpa kelas"} • total{" "}
+                          {selectedStudent.totalXp} XP • streak{" "}
+                          {selectedStudent.currentStreak} hari
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {timelineDays.map((day) => {
+                          const report = selectedStudentReportByDate.get(day);
+                          const selectedMissionCount = report
+                            ? asArray(report.answers?.selectedMissionIds).length
+                            : 0;
+                          return (
+                            <div
+                              key={day}
+                              className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-xs dark:border-slate-700"
+                            >
+                              <span className="text-slate-600 dark:text-slate-300">
+                                {day}
+                              </span>
+                              <span className="text-slate-700 dark:text-slate-200">
+                                {report
+                                  ? `${selectedMissionCount} misi • +${report.xpGained} XP`
+                                  : "Belum isi"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Laporan Utama
+                          </p>
+                          <p className="mt-1">
+                            Hafalan surat pendek:{" "}
+                            {selectedStudentSummary.utama.hafalan}
+                          </p>
+                          <p>
+                            Shalat lima waktu:{" "}
+                            {selectedStudentSummary.utama.shalatLimaWaktu}
+                          </p>
+                          <p>
+                            Shalat Idulfitri:{" "}
+                            {selectedStudentSummary.utama.idulfitri}
+                          </p>
+                          <p>
+                            Zakat fitrah:{" "}
+                            {selectedStudentSummary.utama.zakatFitrah}
+                          </p>
+                        </article>
+                        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Laporan Sunnah
+                          </p>
+                          <p>
+                            Shalat tarawih:{" "}
+                            {selectedStudentSummary.sunnah.tarawih}
+                          </p>
+                          <p>
+                            Shalat tahajjud:{" "}
+                            {selectedStudentSummary.sunnah.tahajjud}
+                          </p>
+                          <p>
+                            Shalat dhuha: {selectedStudentSummary.sunnah.dhuha}
+                          </p>
+                          <p>
+                            Infaq/shadaqah:{" "}
+                            {selectedStudentSummary.sunnah.infaqShadaqah}
+                          </p>
+                          <p>
+                            Takziah/ziarah:{" "}
+                            {selectedStudentSummary.sunnah.takziahZiarah}
+                          </p>
+                          <p>
+                            Sunnah lainnya:{" "}
+                            {selectedStudentSummary.sunnah.sunnahLainnya}
+                          </p>
+                        </article>
+                        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Laporan Literasi
+                          </p>
+                          <p>
+                            Tadarus: {selectedStudentSummary.literasi.tadarus}
+                          </p>
+                          <p>
+                            Kultum Ramadan:{" "}
+                            {selectedStudentSummary.literasi.kultum}
+                          </p>
+                          <p>
+                            Materi fikih Ramadan:{" "}
+                            {selectedStudentSummary.literasi.fikihRamadan}
+                          </p>
+                        </article>
+                        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                            Laporan Akhlak
+                          </p>
+                          <p>
+                            Kegiatan silaturahim:{" "}
+                            {selectedStudentSummary.akhlak.silaturahim}
+                          </p>
+                          <p>
+                            Lembar penilaian diri:{" "}
+                            {selectedStudentSummary.akhlak.refleksi}
+                          </p>
+                        </article>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Laporan Tambahan (Kelengkapan)
+                        </p>
+                        <p>
+                          Status puasa hari ini:{" "}
+                          {selectedStudentSummary.tambahan.statusPuasa}
+                        </p>
+                        <p>
+                          Aktivitas checklist hari ini:{" "}
+                          {selectedStudentSummary.tambahan.aktivitasChecklist}
+                        </p>
+                        <p>
+                          Progres shalat wajib hari ini:{" "}
+                          {selectedStudentSummary.tambahan.progresShalatWajib}
+                        </p>
+                        <p>
+                          Waktu lapor terakhir:{" "}
+                          {selectedStudentSummary.tambahan.waktuLaporTerakhir}
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-800 dark:text-slate-100">
+                          Konsistensi 7 hari terakhir
+                        </p>
+                        <p>
+                          Hari mengisi laporan:{" "}
+                          {selectedStudentWeeklySummary.daysReported}/
+                          {timelineDays.length}
+                        </p>
+                        <p>
+                          Rata-rata XP saat mengisi:{" "}
+                          {selectedStudentWeeklyAvgXp}
+                        </p>
+                        <p>
+                          Hari shalat wajib lengkap (5/5):{" "}
+                          {selectedStudentWeeklySummary.fullPrayerDays}
+                        </p>
+                        <p>
+                          Hari tadarus terisi:{" "}
+                          {selectedStudentWeeklySummary.tadarusDays}
+                        </p>
+                        <p>
+                          Hari aktivitas sunnah terisi:{" "}
+                          {selectedStudentWeeklySummary.sunnahDays}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                          Bukti Silaturahim (Hari Ini)
+                        </p>
+                        {selectedStudentSilaturahimProof?.photoUrl ? (
+                          <div className="mt-2 space-y-2">
+                            <img
+                              src={selectedStudentSilaturahimProof.photoUrl}
+                              alt={`Bukti silaturahim ${selectedStudent.name}`}
+                              className="h-44 w-full rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+                            />
+                            <p>
+                              Tujuan:{" "}
+                              <span className="font-semibold">
+                                {selectedStudentSilaturahimProof.teacherName ||
+                                  "-"}
+                              </span>{" "}
+                              —{" "}
+                              {selectedStudentSilaturahimProof.location || "-"}
+                            </p>
+                            <p>
+                              Waktu:{" "}
+                              {selectedStudentSilaturahimProof.recordedAt ||
+                                selectedDate}
+                            </p>
+                            <p>
+                              Catatan:{" "}
+                              {selectedStudentSilaturahimProof.lessonSummary ||
+                                "-"}
+                            </p>
+                            <a
+                              href={selectedStudentSilaturahimProof.photoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex rounded-lg border border-slate-300 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                            >
+                              Buka Foto
+                            </a>
+                          </div>
+                        ) : (
+                          <p className="mt-2 text-slate-500 dark:text-slate-400">
+                            Belum ada foto bukti silaturahim untuk hari ini.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+                      Tidak ada siswa pada filter ini.
+                    </p>
+                  )}
+                </article>
+              </div>
             </section>
           </div>
         </div>

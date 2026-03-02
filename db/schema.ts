@@ -88,6 +88,8 @@ export const dailyReports = pgTable(
           Record<"Subuh" | "Dzuhur" | "Ashar" | "Maghrib" | "Isya", string>
         >;
         murajaahXpBonus?: number;
+        murajaahSurahNumbers?: number[];
+        murajaahSurahTimestamps?: Record<string, string>;
         fikihXpBonus?: number;
         tadarusReport?: {
           surahName: string;

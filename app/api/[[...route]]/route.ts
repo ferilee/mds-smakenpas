@@ -368,6 +368,8 @@ const reportSchema = z.object({
     })
     .default({}),
   murajaahXpBonus: z.number().int().min(0).max(500).default(0),
+  murajaahSurahNumbers: z.array(z.number().int().min(78).max(114)).default([]),
+  murajaahSurahTimestamps: z.record(z.string()).default({}),
   fikihXpBonus: z.number().int().min(0).max(1000).default(0),
   tadarusReport: z
     .object({
@@ -584,6 +586,30 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
     payload.infaqShadaqahReport || existingReport?.answers?.infaqShadaqahReport;
   const takziahZiarahReport =
     payload.takziahZiarahReport || existingReport?.answers?.takziahZiarahReport;
+  const murajaahSurahNumbers = Array.from(
+    new Set(
+      payload.murajaahSurahNumbers.filter(
+        (num) => Number.isInteger(num) && num >= 78 && num <= 114,
+      ),
+    ),
+  ).sort((a, b) => a - b);
+  const murajaahSurahTimestamps = murajaahSurahNumbers.reduce<
+    Record<string, string>
+  >((acc, number) => {
+    const key = String(number);
+    const value = payload.murajaahSurahTimestamps[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      acc[key] = value;
+      return acc;
+    }
+    const existingValue =
+      existingReport?.answers?.murajaahSurahTimestamps?.[key];
+    acc[key] =
+      typeof existingValue === "string" && existingValue.trim().length > 0
+        ? existingValue
+        : nowIso;
+    return acc;
+  }, {});
 
   await db
     .insert(dailyReports)
@@ -601,6 +627,8 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
         checklistTimestamps: normalizedChecklistTimestamps,
         prayerReportTimestamps: payload.prayerReportTimestamps,
         murajaahXpBonus: payload.murajaahXpBonus,
+        murajaahSurahNumbers,
+        murajaahSurahTimestamps,
         fikihXpBonus: payload.fikihXpBonus,
         tadarusReport: payload.tadarusReport,
         idulfitriReport: payload.idulfitriReport,
@@ -626,6 +654,8 @@ app.post("/reports/today", zValidator("json", reportSchema), async (c) => {
           checklistTimestamps: normalizedChecklistTimestamps,
           prayerReportTimestamps: payload.prayerReportTimestamps,
           murajaahXpBonus: payload.murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: payload.fikihXpBonus,
           tadarusReport: payload.tadarusReport,
           idulfitriReport: payload.idulfitriReport,

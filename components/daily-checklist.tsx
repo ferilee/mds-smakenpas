@@ -149,12 +149,12 @@ const FASTING_PROMPT_VALUE_KEY_PREFIX = "fasting_prompt_value";
 const FASTING_CONFIRMATION_KEY = "fasting_confirmation_latest";
 const FASTING_CONFIRMATION_UPDATED_EVENT = "fasting-confirmation-updated";
 const MURAJAAH_STORAGE_KEY = "murajaah_juz30_hafal";
+const MURAJAAH_TS_STORAGE_KEY = "murajaah_juz30_hafal_timestamps";
 const FIKIH_SUMMARY_STORAGE_KEY = "fikih_ramadan_summaries_v1";
 const JUZ30_TOTAL_SURAH = 37;
 const MURAJAAH_TARGET_SURAH = 30;
 const DEFAULT_CITY_KEYWORD = "lumajang";
 const FIKIH_XP_PER_SUMMARY = 15;
-const FASTING_MODAL_DELAY_MS = 60_000;
 
 const missionDetails: Record<string, MissionDetail> = {
   HAFALAN_SURAT_PENDEK: {
@@ -842,7 +842,6 @@ export function DailyChecklist({
   const [showZakatReward, setShowZakatReward] = useState(false);
   const [syawalFirstDate, setSyawalFirstDate] = useState<Date | null>(null);
   const [reportDateKey, setReportDateKey] = useState("");
-  const [showFastingModal, setShowFastingModal] = useState(false);
   const [showFikihModal, setShowFikihModal] = useState(false);
   const [fikihTopicIndex, setFikihTopicIndex] = useState(0);
   const [fikihSummaries, setFikihSummaries] = useState<Record<string, string>>(
@@ -850,6 +849,12 @@ export function DailyChecklist({
   );
   const [fikihStatus, setFikihStatus] = useState("");
   const [murajaahDoneCount, setMurajaahDoneCount] = useState(0);
+  const [murajaahSurahNumbers, setMurajaahSurahNumbers] = useState<number[]>(
+    [],
+  );
+  const [murajaahSurahTimestamps, setMurajaahSurahTimestamps] = useState<
+    Record<string, string>
+  >({});
   const [checklistTimestamps, setChecklistTimestamps] = useState<
     Record<number, string>
   >({});
@@ -991,14 +996,6 @@ export function DailyChecklist({
   }, [fikihSummaries]);
 
   useEffect(() => {
-    if (!shouldShowDelayedFastingPrompt || !reportDateKey) return;
-    const timer = window.setTimeout(() => {
-      setShowFastingModal(true);
-    }, FASTING_MODAL_DELAY_MS);
-    return () => window.clearTimeout(timer);
-  }, [reportDateKey, shouldShowDelayedFastingPrompt]);
-
-  useEffect(() => {
     if (!tadarusAyatLimit) return;
     setTadarusReportForm((prev) => {
       const ayatFrom = Number(prev.ayatFrom);
@@ -1080,7 +1077,9 @@ export function DailyChecklist({
         );
         const hasDailyReport = Boolean(tData.report?.answers);
         if (!hasDailyReport) {
-          setShouldShowDelayedFastingPrompt(true);
+          setShouldShowDelayedFastingPrompt(!storedFastingValue);
+        } else {
+          setShouldShowDelayedFastingPrompt(false);
         }
         if (!hasDailyReport && storedFastingValue) {
           setFasting(storedFastingValue === "fasting");
@@ -1118,6 +1117,24 @@ export function DailyChecklist({
             tData.report.answers.prayerReportTimestamps || {},
           );
           setMurajaahXpBonus(Number(tData.report.answers.murajaahXpBonus || 0));
+          setMurajaahSurahNumbers(
+            Array.isArray(tData.report.answers.murajaahSurahNumbers)
+              ? tData.report.answers.murajaahSurahNumbers
+                  .map((v: unknown) => Number(v))
+                  .filter(
+                    (v: number) => Number.isInteger(v) && v >= 78 && v <= 114,
+                  )
+              : [],
+          );
+          setMurajaahSurahTimestamps(
+            tData.report.answers.murajaahSurahTimestamps &&
+              typeof tData.report.answers.murajaahSurahTimestamps === "object"
+              ? (tData.report.answers.murajaahSurahTimestamps as Record<
+                  string,
+                  string
+                >)
+              : {},
+          );
           if (tData.report.answers.tadarusReport) {
             setTadarusReportForm({
               surahName: tData.report.answers.tadarusReport.surahName || "",
@@ -1258,22 +1275,46 @@ export function DailyChecklist({
   useEffect(() => {
     const syncMurajaahProgress = () => {
       const raw = window.localStorage.getItem(MURAJAAH_STORAGE_KEY);
+      const rawTs = window.localStorage.getItem(MURAJAAH_TS_STORAGE_KEY);
       if (!raw) {
         setMurajaahDoneCount(0);
+        setMurajaahSurahNumbers([]);
+        setMurajaahSurahTimestamps({});
         return;
       }
       try {
         const parsed = JSON.parse(raw) as number[];
         if (!Array.isArray(parsed)) {
           setMurajaahDoneCount(0);
+          setMurajaahSurahNumbers([]);
+          setMurajaahSurahTimestamps({});
           return;
         }
         const unique = new Set(
           parsed.filter((v) => Number.isInteger(v) && v >= 78 && v <= 114),
         );
+        const normalized = Array.from(unique).sort((a, b) => a - b);
+        const parsedTs = rawTs
+          ? (JSON.parse(rawTs) as Record<string, string>)
+          : {};
+        const normalizedTs = normalized.reduce<Record<string, string>>(
+          (acc, num) => {
+            const key = String(num);
+            const value = parsedTs?.[key];
+            if (typeof value === "string" && value.trim().length > 0) {
+              acc[key] = value;
+            }
+            return acc;
+          },
+          {},
+        );
+        setMurajaahSurahNumbers(normalized);
+        setMurajaahSurahTimestamps(normalizedTs);
         setMurajaahDoneCount(Math.min(JUZ30_TOTAL_SURAH, unique.size));
       } catch {
         setMurajaahDoneCount(0);
+        setMurajaahSurahNumbers([]);
+        setMurajaahSurahTimestamps({});
       }
     };
 
@@ -1577,7 +1618,6 @@ export function DailyChecklist({
       );
       window.dispatchEvent(new Event(FASTING_CONFIRMATION_UPDATED_EVENT));
     }
-    setShowFastingModal(false);
     setShouldShowDelayedFastingPrompt(false);
   };
 
@@ -1614,6 +1654,8 @@ export function DailyChecklist({
           checklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -1691,6 +1733,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -1753,6 +1797,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -1812,6 +1858,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -1875,6 +1923,8 @@ export function DailyChecklist({
           checklistTimestamps,
           prayerReportTimestamps: nextPrayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -1953,6 +2003,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -2034,6 +2086,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: normalizedKultumReport,
@@ -2145,6 +2199,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: {
             surahName,
@@ -2233,6 +2289,8 @@ export function DailyChecklist({
           checklistTimestamps: nextChecklistTimestamps,
           prayerReportTimestamps,
           murajaahXpBonus,
+          murajaahSurahNumbers,
+          murajaahSurahTimestamps,
           fikihXpBonus: fikihSummaryXp,
           tadarusReport: normalizedTadarusReport,
           kultumReport: {
@@ -2648,6 +2706,37 @@ export function DailyChecklist({
               </p>
             </div>
 
+            {shouldShowDelayedFastingPrompt ? (
+              <div className="mt-4 rounded-2xl border border-amber-300/50 bg-amber-50/95 p-3 text-slate-800 shadow-sm dark:border-amber-300/35 dark:bg-amber-100/10 dark:text-amber-100">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-200">
+                  Pengingat Harian
+                </p>
+                <p className="mt-1 text-sm font-semibold">
+                  Status puasa hari ini belum dipilih.
+                </p>
+                <p className="mt-1 text-xs text-slate-700 dark:text-amber-100/85">
+                  Pilih salah satu agar status puasa tercatat saat mengisi
+                  checklist.
+                </p>
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => pickFastingStatus(true)}
+                    className="rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    Saya berpuasa
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => pickFastingStatus(false)}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-amber-200/40 dark:bg-amber-100/10 dark:text-amber-100 dark:hover:bg-amber-100/20"
+                  >
+                    Tidak berpuasa
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
             <div className="mt-4 hidden grid-cols-2 gap-2 sm:grid lg:grid-cols-4">
               {navItems.map((item) => (
                 <button
@@ -2867,38 +2956,6 @@ export function DailyChecklist({
           </div>
         </section>
       </div>
-      {showFastingModal ? (
-        <div className="fixed inset-0 z-[148] flex items-center justify-center bg-slate-950/55 p-4">
-          <div className="w-full max-w-sm rounded-3xl bg-white p-5 shadow-2xl ring-1 ring-black/5 dark:bg-slate-900 dark:ring-slate-800">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-600 dark:text-emerald-300">
-              Checklist Harian
-            </p>
-            <h3 className="mt-2 text-xl font-bold text-slate-900 dark:text-slate-100">
-              Saya berpuasa hari ini
-            </h3>
-            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Pilih status puasa hari ini untuk mengisi checklist harian
-              Ramadan.
-            </p>
-            <div className="mt-5 grid grid-cols-1 gap-2">
-              <button
-                type="button"
-                onClick={() => pickFastingStatus(true)}
-                className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Saya berpuasa
-              </button>
-              <button
-                type="button"
-                onClick={() => pickFastingStatus(false)}
-                className="rounded-xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Tidak berpuasa
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
       {showFikihModal ? (
         <div className="fixed inset-0 z-[152] flex items-end bg-slate-950/45 p-0 sm:p-4">
           <div className="w-full rounded-t-3xl border border-brand-300/45 bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-5 text-brand-50 shadow-2xl ring-1 ring-brand-200/25 sm:mx-auto sm:max-w-2xl sm:rounded-3xl dark:border-brand-800/50 dark:from-slate-800 dark:via-slate-900 dark:to-slate-950">

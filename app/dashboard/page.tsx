@@ -14,8 +14,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { UserAvatar } from "@/components/user-avatar";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { users } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { dailyReports, users } from "@/db/schema";
+import { and, eq, gte, lte } from "drizzle-orm";
 import { computeLevel } from "@/lib/xp";
 
 type DashboardPageProps = {
@@ -23,6 +23,19 @@ type DashboardPageProps = {
     panel?: string;
   }>;
 };
+
+function toDateKey(date: Date) {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
 
 export default async function DashboardPage({
   searchParams,
@@ -51,6 +64,64 @@ export default async function DashboardPage({
 
   const levelInfo = computeLevel(user.totalXp);
   const profileImage = user.image ?? session.user.image ?? null;
+  const now = new Date();
+  const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayIndex = todayLocal.getDay();
+  const mondayOffset = dayIndex === 0 ? -6 : 1 - dayIndex;
+  const monday = addDays(todayLocal, mondayOffset);
+  const sunday = addDays(monday, 6);
+  const weekDays = Array.from({ length: 7 }).map((_, idx) => {
+    const date = addDays(monday, idx);
+    const dayName =
+      idx === 0
+        ? "S"
+        : idx === 1
+          ? "S"
+          : idx === 2
+            ? "R"
+            : idx === 3
+              ? "K"
+              : idx === 4
+                ? "J"
+                : idx === 5
+                  ? "S"
+                  : "M";
+    return {
+      dateKey: toDateKey(date),
+      dayName,
+    };
+  });
+
+  const weeklyReports = await db
+    .select({
+      reportDate: dailyReports.reportDate,
+      answers: dailyReports.answers,
+    })
+    .from(dailyReports)
+    .where(
+      and(
+        eq(dailyReports.userId, user.id),
+        gte(dailyReports.reportDate, toDateKey(monday)),
+        lte(dailyReports.reportDate, toDateKey(sunday)),
+      ),
+    );
+  const weeklyReportByDate = new Map(
+    weeklyReports.map((item) => [item.reportDate, item]),
+  );
+  const weeklyFastingHistory = weekDays.map((day) => {
+    const report = weeklyReportByDate.get(day.dateKey);
+    const fasting =
+      typeof report?.answers?.fasting === "boolean"
+        ? report.answers.fasting
+        : false;
+    return {
+      ...day,
+      fasting,
+    };
+  });
+  const weeklyFastingCount = weeklyFastingHistory.filter(
+    (item) => item.fasting,
+  ).length;
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-4 pb-24 sm:px-5 sm:py-6 sm:pb-6">
@@ -188,6 +259,54 @@ export default async function DashboardPage({
 
       <section className="mt-5 grid gap-4 sm:mt-6 sm:gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
+          <article className="mb-4 overflow-hidden rounded-3xl border border-orange-300/55 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-500 p-4 text-white shadow-lg shadow-orange-900/20 sm:mb-5 sm:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.13em] text-orange-50/95">
+                  Streaks Puasa Minggu Ini
+                </p>
+                <p className="mt-1 text-4xl font-black leading-none">
+                  {weeklyFastingCount} Streaks
+                </p>
+                <p className="mt-2 text-sm text-orange-50/95">
+                  {weeklyFastingCount === 7
+                    ? "MasyaAllah, penuh Senin sampai Minggu."
+                    : "Jangan sampai bolong, lanjutkan puasa harianmu."}
+                </p>
+              </div>
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/20 text-orange-50/95">
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-7 w-7"
+                  fill="currentColor"
+                >
+                  <path d="M12.1 2.3c.4 2.2-.5 3.8-1.6 5.2-1.2 1.6-2.5 3.2-2.5 5.4 0 2.4 1.8 4.2 4 4.2s4-1.8 4-4.2c0-1.7-.8-3-1.8-4.2-.7-.9-1.3-1.8-1.3-3.1 1.9 1 3.6 3.2 3.6 6.2 0 3.9-3 7-7 7s-7-3.1-7-7c0-4.7 3.5-7.8 6.6-9.5z" />
+                </svg>
+              </div>
+            </div>
+            <div className="mt-4 border-t border-white/25 pt-3">
+              <div className="grid grid-cols-7 gap-1.5">
+                {weeklyFastingHistory.map((day) => (
+                  <div
+                    key={day.dateKey}
+                    className="flex flex-col items-center justify-center"
+                    title={`${day.dateKey}: ${day.fasting ? "Puasa" : "Belum puasa"}`}
+                  >
+                    <span className="text-sm font-semibold text-orange-50/95">
+                      {day.dayName}
+                    </span>
+                    <span
+                      className={`mt-1.5 h-5 w-5 rounded-full border-2 ${
+                        day.fasting
+                          ? "border-emerald-200 bg-emerald-300"
+                          : "border-orange-100/90 bg-transparent"
+                      }`}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </article>
           <DailyChecklist initialShowPrayerPanel={isPrayerPanelOpen} />
         </div>
 

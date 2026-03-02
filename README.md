@@ -119,3 +119,13 @@ docker compose -f docker-compose.prod.yml --env-file .env.production up -d --bui
 ```
 - Panduan lengkap:
   - `docs/deploy-production.md`
+
+## Panduan Pengguna
+- Panduan operasional siswa dan guru:
+  - `docs/panduan-operasional-siswa-guru.md`
+- Panduan siswa:
+  - `docs/panduan-siswa.md`
+  - `docs/panduan-siswa.pdf`
+- Panduan guru:
+  - `docs/panduan-guru.md`
+  - `docs/panduan-guru.pdf`

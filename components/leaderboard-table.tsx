@@ -98,7 +98,7 @@ export function LeaderboardTable() {
                   : "text-brand-100 hover:text-white"
               }`}
             >
-              Weekly
+              Kelas
             </button>
             <button
               type="button"
@@ -109,7 +109,7 @@ export function LeaderboardTable() {
                   : "text-brand-100 hover:text-white"
               }`}
             >
-              All Time
+              Sekolah
             </button>
           </div>
         </div>
