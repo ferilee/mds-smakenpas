@@ -1253,7 +1253,34 @@ export default async function GuruMonitoringPage({
                           download={`guru-monitoring-siswa-${selectedDate}.csv`}
                           className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
-                          CSV
+                          CSV Ringkas
+                        </a>
+                        <a
+                          href={`/api/guru/monitoring/export?${new URLSearchParams(
+                            Object.entries({
+                              mode: "daily",
+                              date: selectedDate,
+                              classroom: selectedClassroom || "",
+                              major: selectedMajor || "",
+                              q: studentSearchQuery || "",
+                            }).filter(([, value]) => Boolean(value)),
+                          ).toString()}`}
+                          className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          CSV Lengkap (Harian)
+                        </a>
+                        <a
+                          href={`/api/guru/monitoring/export?${new URLSearchParams(
+                            Object.entries({
+                              mode: "all",
+                              classroom: selectedClassroom || "",
+                              major: selectedMajor || "",
+                              q: studentSearchQuery || "",
+                            }).filter(([, value]) => Boolean(value)),
+                          ).toString()}`}
+                          className="inline-flex h-8 items-center rounded-lg border border-slate-300 px-3 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          CSV Lengkap (Semua Hari)
                         </a>
                       </div>
                     </div>

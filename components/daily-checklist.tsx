@@ -737,7 +737,8 @@ export function DailyChecklist({
   const searchParams = useSearchParams();
   const [missions, setMissions] = useState<Mission[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
-  const [fasting, setFasting] = useState(true);
+  // Require an explicit daily confirmation; do not assume default.
+  const [fasting, setFasting] = useState<boolean | null>(null);
   const [narration, setNarration] = useState("");
   const [sunnahOtherNote, setSunnahOtherNote] = useState("");
   const [saving, setSaving] = useState(false);
@@ -1084,12 +1085,17 @@ export function DailyChecklist({
           fastingPromptValueKey,
         );
         const hasDailyReport = Boolean(tData.report?.answers);
+        const fastingFromReport =
+          typeof tData.report?.answers?.fasting === "boolean"
+            ? Boolean(tData.report.answers.fasting)
+            : null;
         if (readOnly) {
           setShouldShowDelayedFastingPrompt(false);
         } else if (!hasDailyReport) {
           setShouldShowDelayedFastingPrompt(!storedFastingValue);
         } else {
-          setShouldShowDelayedFastingPrompt(false);
+          // Backward-compat: older reports may not have `fasting` recorded.
+          setShouldShowDelayedFastingPrompt(fastingFromReport === null);
         }
         if (!hasDailyReport && storedFastingValue) {
           setFasting(storedFastingValue === "fasting");
@@ -1098,7 +1104,7 @@ export function DailyChecklist({
           const selectedMissionIds =
             tData.report.answers.selectedMissionIds || [];
           setSelected(selectedMissionIds);
-          setFasting(Boolean(tData.report.answers.fasting));
+          setFasting(fastingFromReport);
           const narrationSections = splitNarrationSections(
             tData.report.narration || "",
           );
@@ -1647,6 +1653,13 @@ export function DailyChecklist({
     setSaving(true);
     setStatus("");
     try {
+      if (fasting === null) {
+        setStatus("Pilih status puasa hari ini terlebih dahulu.");
+        setShouldShowDelayedFastingPrompt(true);
+        setSaving(false);
+        return;
+      }
+
       const normalizedIdulfitri = idulfitriForm.place.trim()
         ? idulfitriForm
         : undefined;
